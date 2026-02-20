@@ -3,6 +3,10 @@ import random
 import math
 import sys
 
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
 from src.core.game import Game
 from src.core.config import screen
 
