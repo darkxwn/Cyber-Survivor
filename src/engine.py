@@ -67,40 +67,90 @@ class Engine:
         self.sound_manager.play_music("menu_theme.ogg")
     
     def _draw_loading_screen(self):
-        """Простой экран загрузки при запуске"""
-        font_title = pygame.font.Font(None, 90)
-        font_sub = pygame.font.Font(None, 36)
+        """Красивый экран загрузки при запуске"""
+        font_title = pygame.font.Font(None, 100)
+        font_sub = pygame.font.Font(None, 34)
+        font_tiny = pygame.font.Font(None, 22)
         
-        steps = ["Инициализация...", "Загрузка ресурсов...", "Подготовка...", "Готово!"]
+        steps = ["Инициализация системы...", "Загрузка ресурсов...", "Построение мира...", "Готово!"]
         for idx, step in enumerate(steps):
-            screen.fill((8, 10, 20))
-            
-            # Градиентный фон
+            # Градиентный фон — тёмный киберпанк
             for i in range(HEIGHT):
-                r = int(5 + 10 * i / HEIGHT)
-                g = int(8 + 12 * i / HEIGHT)
-                b = int(18 + 17 * i / HEIGHT)
+                r = int(3 + 12 * i / HEIGHT)
+                g = int(5 + 10 * i / HEIGHT)
+                b = int(15 + 22 * i / HEIGHT)
                 pygame.draw.line(screen, (r, g, b), (0, i), (WIDTH, i))
             
-            # Заголовок
-            title = font_title.render("CYBER SURVIVOR", True, (0, 255, 204))
-            screen.blit(title, title.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 80)))
+            # Сетка фона
+            for gx in range(0, WIDTH, 60):
+                pygame.draw.line(screen, (15, 20, 35), (gx, 0), (gx, HEIGHT), 1)
+            for gy in range(0, HEIGHT, 60):
+                pygame.draw.line(screen, (15, 20, 35), (0, gy), (WIDTH, gy), 1)
             
-            # Прогресс бар
-            bar_w = 400
-            bar_h = 8
+            # Декоративные угловые линии
+            corner_len = 80
+            corner_col = (0, 255, 204)
+            cx, cy = WIDTH // 2, HEIGHT // 2
+            # Уголки рамки
+            for bx, by, sx, sy in [
+                (cx - 325, cy - 150, 1, 1),
+                (cx + 325, cy - 150, -1, 1),
+                (cx - 325, cy + 150, 1, -1),
+                (cx + 325, cy + 150, -1, -1),
+            ]:
+                pygame.draw.line(screen, corner_col, (bx, by), (bx + sx * corner_len, by), 2)
+                pygame.draw.line(screen, corner_col, (bx, by), (bx, by + sy * corner_len), 2)
+            
+            # Название с глоу-эффектом
+            title_txt = "CYBER SURVIVOR"
+            for gi in range(4, 0, -1):
+                alpha = 25 - gi * 5
+                glow_color = (0, int(255 * alpha / 25), int(204 * alpha / 25))
+                gt = font_title.render(title_txt, True, glow_color)
+                screen.blit(gt, gt.get_rect(center=(WIDTH // 2 + gi, HEIGHT // 2 - 65 + gi)))
+            title = font_title.render(title_txt, True, (0, 255, 204))
+            screen.blit(title, title.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 65)))
+            
+            # Прогресс бар с секциями
+            bar_w = 500
+            bar_h = 10
             bar_x = WIDTH // 2 - bar_w // 2
-            bar_y = HEIGHT // 2 + 20
+            bar_y = HEIGHT // 2 + 35
             progress = (idx + 1) / len(steps)
-            pygame.draw.rect(screen, (30, 35, 50), (bar_x, bar_y, bar_w, bar_h), border_radius=4)
-            pygame.draw.rect(screen, (0, 255, 204), (bar_x, bar_y, int(bar_w * progress), bar_h), border_radius=4)
+            
+            # Фон бара
+            pygame.draw.rect(screen, (20, 25, 40), (bar_x - 2, bar_y - 2, bar_w + 4, bar_h + 4), border_radius=5)
+            pygame.draw.rect(screen, (30, 38, 55), (bar_x, bar_y, bar_w, bar_h), border_radius=4)
+            
+            # Заполнение с градиентом
+            fill_w = int(bar_w * progress)
+            if fill_w > 0:
+                for fi in range(fill_w):
+                    t = fi / bar_w
+                    r = int(0 + 0 * t)
+                    g = int(200 + 55 * t)
+                    b = int(180 + 24 * t)
+                    pygame.draw.line(screen, (r, g, b), (bar_x + fi, bar_y + 1), (bar_x + fi, bar_y + bar_h - 1))
+            
+            # Свечение бара
+            pygame.draw.rect(screen, (0, 255, 204), (bar_x, bar_y, fill_w, bar_h), 2, border_radius=4)
+            
+            # Точки-разделители
+            for di in range(1, len(steps)):
+                dx = bar_x + int(bar_w * di / len(steps))
+                col = (0, 255, 204) if di <= idx + 1 else (40, 50, 70)
+                pygame.draw.circle(screen, col, (dx, bar_y + bar_h // 2), 4)
             
             # Текст шага
-            sub = font_sub.render(step, True, (150, 170, 200))
-            screen.blit(sub, sub.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 55)))
+            sub = font_sub.render(step, True, (180, 200, 230))
+            screen.blit(sub, sub.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 65)))
+            
+            # Версия
+            ver = font_tiny.render("v4.3 — Enhanced Edition", True, (60, 70, 100))
+            screen.blit(ver, ver.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 100)))
             
             pygame.display.flip()
-            pygame.time.delay(280)
+            pygame.time.delay(300)
         
         pygame.time.delay(150)
 
@@ -306,11 +356,16 @@ class Engine:
                             dmg, self.player.piercing, self.player.bullet_size,
                             self.player.bullet_lifetime, is_crit
                         ))
-                        # Двойной выстрел: доп. пули почти параллельно
+                        # Двойной выстрел: доп. пули летят ВСЛЕД за основной (--|)
+                        # Реализовано через задержку позиции — вторая пуля спавнится позади
                         for tw in range(twin):
-                            tw_angle = angle + (tw + 1) * 4
+                            delay_dist = (tw + 1) * 18  # px позади
+                            offset = pygame.Vector2(
+                                -math.cos(math.radians(angle)) * delay_dist,
+                                -math.sin(math.radians(angle)) * delay_dist
+                            )
                             self.bullets.append(Bullet(
-                                self.player.pos, tw_angle, self.player.bullet_speed,
+                                self.player.pos + offset, angle, self.player.bullet_speed,
                                 dmg, self.player.piercing, self.player.bullet_size,
                                 self.player.bullet_lifetime, is_crit
                             ))
@@ -347,13 +402,13 @@ class Engine:
                 elif time_elapsed < 120:  # 1-2 минуты
                     enemy_type = random.choices(["basic", "fast", "swarm"], weights=[55, 30, 15])[0]
                 elif time_elapsed < 180:  # 2-3 минуты
-                    enemy_type = random.choices(["basic", "fast", "tank", "swarm", "sniper"], weights=[30, 30, 15, 15, 10])[0]
+                    enemy_type = random.choices(["basic", "fast", "tank", "swarm", "sniper", "ranger", "lancer"], weights=[25, 25, 15, 15, 8, 7, 5])[0]
                 elif time_elapsed < 300:  # 3-5 минут
-                    enemy_type = random.choices(["basic", "fast", "tank", "swarm", "sniper", "ghost"], weights=[20, 25, 20, 15, 10, 10])[0]
+                    enemy_type = random.choices(["basic", "fast", "tank", "swarm", "sniper", "ghost", "ranger", "healer"], weights=[20, 22, 18, 12, 10, 8, 6, 4])[0]
                 elif time_elapsed < 480:  # 5-8 минут
-                    enemy_type = random.choices(["basic", "fast", "tank", "swarm", "sniper", "ghost", "bruiser"], weights=[15, 20, 20, 15, 10, 10, 10])[0]
+                    enemy_type = random.choices(["basic", "fast", "tank", "swarm", "sniper", "ghost", "bruiser", "lancer", "buffer"], weights=[12, 18, 18, 12, 10, 10, 10, 6, 4])[0]
                 else:  # После 8 минут
-                    enemy_type = random.choices(["basic", "fast", "tank", "sniper", "ghost", "bruiser", "leech", "bomber", "sentinel", "boss", "ranger", "mortar", "shielder"], weights=[7, 10, 12, 8, 8, 10, 6, 6, 6, 7, 6, 5, 9])[0]
+                    enemy_type = random.choices(["basic", "fast", "tank", "sniper", "ghost", "bruiser", "leech", "bomber", "sentinel", "boss", "ranger", "mortar", "shielder", "lancer", "healer", "buffer"], weights=[6, 9, 10, 7, 7, 9, 5, 5, 5, 6, 5, 4, 6, 5, 4, 7])[0]
             else:
                 # Режим волн
                 wave_num = self.wave_system.current_wave
@@ -363,11 +418,11 @@ class Engine:
                 elif wave_num <= 4:
                     enemy_type = random.choices(["basic", "fast", "swarm"], weights=[55, 30, 15])[0]
                 elif wave_num <= 7:
-                    enemy_type = random.choices(["basic", "fast", "tank", "swarm", "sniper", "ranger"], weights=[28, 28, 15, 15, 8, 6])[0]
+                    enemy_type = random.choices(["basic", "fast", "tank", "swarm", "sniper", "ranger", "lancer"], weights=[25, 25, 15, 15, 8, 7, 5])[0]
                 elif wave_num <= 12:
-                    enemy_type = random.choices(["basic", "fast", "tank", "sniper", "ghost", "swarm", "ranger", "mortar"], weights=[18, 22, 18, 12, 10, 8, 7, 5])[0]
+                    enemy_type = random.choices(["basic", "fast", "tank", "sniper", "ghost", "swarm", "ranger", "mortar", "lancer", "healer"], weights=[15, 20, 15, 10, 10, 8, 8, 5, 5, 4])[0]
                 else:
-                    enemy_type = random.choices(["basic", "fast", "tank", "sniper", "ghost", "bruiser", "leech", "bomber", "sentinel", "boss", "ranger", "mortar", "shielder"], weights=[7, 10, 12, 8, 8, 10, 6, 6, 6, 8, 6, 5, 8])[0]
+                    enemy_type = random.choices(["basic", "fast", "tank", "sniper", "ghost", "bruiser", "leech", "bomber", "sentinel", "boss", "ranger", "mortar", "shielder", "lancer", "healer", "buffer"], weights=[6, 9, 10, 7, 7, 9, 5, 5, 5, 7, 5, 4, 7, 5, 4, 5])[0]
             
             new_enemy = Enemy(spawn_pos, enemy_type, difficulty)
             # Мини-босс каждые 5 волн (1 на волну, не быстрые типы)
@@ -378,21 +433,23 @@ class Engine:
                     not getattr(self, '_miniboss_spawned_this_wave', False) and
                     self.wave_system.wave_active and
                     self.wave_system.enemies_spawned == 1):
-                # Превращаем в мини-босса
+                # Превращаем в мини-босса (усиленного)
                 new_enemy.is_miniboss = True
-                new_enemy.max_hp = int(new_enemy.max_hp * 3.5)
+                new_enemy.max_hp = int(new_enemy.max_hp * 5.0)   # было 3.5
                 new_enemy.hp = new_enemy.max_hp
-                new_enemy.dmg = int(new_enemy.dmg * 2)
-                new_enemy.speed = max(1.0, new_enemy.speed * 0.75)
-                new_enemy.size = int(new_enemy.size * 1.6)
-                new_enemy.exp_value = int(new_enemy.exp_value * 4)
+                new_enemy.dmg = int(new_enemy.dmg * 2.5)          # было 2
+                new_enemy.speed = max(1.5, new_enemy.speed * 0.8)
+                new_enemy.size = int(new_enemy.size * 1.8)        # было 1.6
+                new_enemy.exp_value = int(new_enemy.exp_value * 5)
                 # Золотой оттенок
                 base = new_enemy.color
                 new_enemy.color = (
-                    min(255, int(base[0] * 0.6 + 255 * 0.4)),
-                    min(255, int(base[1] * 0.6 + 215 * 0.4)),
-                    min(255, int(base[2] * 0.3)),
+                    min(255, int(base[0] * 0.5 + 255 * 0.5)),
+                    min(255, int(base[1] * 0.5 + 215 * 0.5)),
+                    min(255, int(base[2] * 0.2)),
                 )
+                # Броня мини-босса
+                new_enemy.damage_reduction = getattr(new_enemy, 'damage_reduction', 0) + 0.15
                 self._miniboss_spawned_this_wave = True
             self.enemies.append(new_enemy)
             self.wave_system.enemy_spawned()
@@ -579,11 +636,38 @@ class Engine:
                 if getattr(enemy, 'shoot_cooldown', 0) <= 0:
                     d = self.player.pos - enemy.pos
                     if d.length() < 600:
-                        spd = pygame.Vector2(d).normalize() * 5
+                        shots = 3 if getattr(enemy, 'triple_shot', False) else 1
+                        for si in range(shots):
+                            angle_off = (si - shots // 2) * 12
+                            spd_vec = pygame.Vector2(d).normalize().rotate(angle_off) * 5
+                            self.enemy_bullets.append({
+                                'pos': pygame.Vector2(enemy.pos), 'vel': spd_vec,
+                                'dmg': enemy.dmg, 'birth': now_ms, 'lifetime': 2500,
+                                'color': enemy.color, 'size': 7, 'type': 'ranger'
+                            })
+                    enemy.shoot_cooldown = enemy.shoot_interval
+            elif enemy.type == "sniper":
+                if getattr(enemy, 'shoot_cooldown', 0) <= 0:
+                    d = self.player.pos - enemy.pos
+                    if d.length() < 700:
+                        spd_vec = pygame.Vector2(d).normalize() * 8  # быстрый снаряд
                         self.enemy_bullets.append({
-                            'pos': pygame.Vector2(enemy.pos), 'vel': spd,
-                            'dmg': enemy.dmg, 'birth': now_ms, 'lifetime': 2500,
-                            'color': enemy.color, 'size': 7, 'type': 'ranger'
+                            'pos': pygame.Vector2(enemy.pos), 'vel': spd_vec,
+                            'dmg': enemy.dmg, 'birth': now_ms, 'lifetime': 2000,
+                            'color': enemy.color, 'size': 8, 'type': 'sniper',
+                            'armor_pierce': getattr(enemy, 'armor_pierce', False)
+                        })
+                    enemy.shoot_cooldown = enemy.shoot_interval
+            elif enemy.type == "lancer":
+                if getattr(enemy, 'shoot_cooldown', 0) <= 0:
+                    d = self.player.pos - enemy.pos
+                    if d.length() < 600:
+                        spd_vec = pygame.Vector2(d).normalize() * 6
+                        self.enemy_bullets.append({
+                            'pos': pygame.Vector2(enemy.pos), 'vel': spd_vec,
+                            'dmg': enemy.dmg, 'birth': now_ms, 'lifetime': 2000,
+                            'color': enemy.color, 'size': 6, 'type': 'lancer',
+                            'piercing': True
                         })
                     enemy.shoot_cooldown = enemy.shoot_interval
             elif enemy.type == "mortar":
@@ -608,7 +692,29 @@ class Engine:
                         if ally is not enemy and ally.type != "shielder":
                             if (ally.pos - enemy.pos).length() < aura_r:
                                 # Мини-щит: уменьшает следующий урон
-                                ally.shield_buff = min(getattr(ally, 'shield_buff', 0) + 20, 80)
+                                ally.shield_buff = min(getattr(ally, 'shield_buff', 0) + 25, 100)
+            elif enemy.type == "healer":
+                # Лечит союзников вокруг
+                if getattr(enemy, 'heal_timer', 0) <= 0:
+                    enemy.heal_timer = enemy.heal_interval
+                    heal_r = getattr(enemy, 'heal_radius', 200)
+                    for ally in self.enemies:
+                        if ally is not enemy:
+                            if (ally.pos - enemy.pos).length() < heal_r:
+                                ally.hp = min(ally.max_hp, ally.hp + enemy.heal_amount)
+            elif enemy.type == "buffer":
+                # Даёт союзникам ускорение и бонус урона
+                if getattr(enemy, 'buff_timer', 0) <= 0:
+                    enemy.buff_timer = enemy.buff_interval
+                    buff_r = getattr(enemy, 'buff_radius', 180)
+                    for ally in self.enemies:
+                        if ally is not enemy:
+                            if (ally.pos - enemy.pos).length() < buff_r:
+                                ally.speed_buff_timer = 2000
+                                # Временно увеличиваем скорость
+                                if not hasattr(ally, '_base_speed_saved'):
+                                    ally._base_speed_saved = ally.speed
+                                ally.speed = ally._base_speed_saved * 1.4
         
         # Обновление и проверка попаданий снарядов врагов
         for eb in self.enemy_bullets[:]:
@@ -629,7 +735,13 @@ class Engine:
             dp = self.player.pos - eb['pos']
             if dp.length() < self.player.size + eb['size']:
                 if eb['type'] != 'mortar':  # Мортира взрывается по таймеру
-                    if self.player.take_damage(eb['dmg']):
+                    # Снайпер пробивает неуязвимость
+                    if eb.get('armor_pierce') and self.player.invulnerable > 0:
+                        self.player.hp -= eb['dmg']
+                        self.player.hit_flash = 200
+                        if self.player.hp <= 0:
+                            self.state = GameState.GAME_OVER
+                    elif self.player.take_damage(eb['dmg']):
                         self.state = GameState.GAME_OVER
                     else:
                         self.particle_system.emit(self.player.pos, 6, eb['color'])
@@ -843,8 +955,8 @@ class Engine:
         
         # Active ability HUD
         active_ab = self.save_system.data.get("active_ability", "")
-        AB_NAMES = {"dash_boost":"СВЕРХРЫВОК","shield_pulse":"ИМПУЛЬС","time_slow":"ЗАМЕДЛЕНИЕ",
-                    "overdrive":"ПЕРЕГРУЗКА","nuke":"ЗАРЯД"}
+        AB_NAMES = {"dash_boost":"РЫВОК-УДАР","shield_pulse":"ЩИТОВОЙ ИМПУЛЬС","time_slow":"ЗАМЕДЛЕНИЕ ВРЕМЕНИ",
+                    "overdrive":"ПЕРЕГРУЗКА","nuke":"ЯДЕРНЫЙ ЗАРЯД"}
         AB_COLORS = {"dash_boost":COLORS["player"],"shield_pulse":COLORS["shield"],"time_slow":(100,200,255),
                      "overdrive":COLORS["warning"],"nuke":COLORS["enemy"]}
         if active_ab and active_ab in AB_NAMES:
@@ -880,7 +992,7 @@ class Engine:
             self.draw_stats_menu()
         elif self.menu_page == "settings":
             self.draw_settings_menu()
-        elif self.menu_page == "modules":
+        elif self.menu_page == "shop" or self.menu_page == "modules":
             self.draw_modules_menu()
         elif self.menu_page == "skins":
             self.draw_skins_menu()
@@ -948,7 +1060,7 @@ class Engine:
         
         # Анимированный подзаголовок
         pulse = abs(math.sin(self.menu_time * 2)) * 30 + 200
-        subtitle = self.font_small.render("v4.2 - Обновление интерфейса. Новые возможности", True, (int(pulse), int(pulse), 255))
+        subtitle = self.font_small.render("v4.3 - Обновление интерфейса. Новые враги и способности", True, (int(pulse), int(pulse), 255))
         subtitle_rect = subtitle.get_rect(center=(WIDTH // 2, HEIGHT // 6 + 70))
         screen.blit(subtitle, subtitle_rect)
         
@@ -962,7 +1074,7 @@ class Engine:
         
         buttons = [
             {"text": "НАЧАТЬ ИГРУ", "action": "play", "desc": "Новая игра", "id": "play", "icon": ">"},
-            {"text": "МАГАЗИН", "action": "modules", "desc": "Модули и Способности", "id": "mod", "icon": "$"},
+            {"text": "МАГАЗИН", "action": "shop", "desc": "Модули и Способности", "id": "mod", "icon": "$"},
             {"text": "СКИНЫ", "action": "skins", "desc": "Внешний вид", "id": "skin", "icon": "#"},
             {"text": "БАЗА ЗНАНИЙ", "action": "knowledge", "desc": "Враги и Перки", "id": "know", "icon": "?"},
             {"text": "ДОСТИЖЕНИЯ", "action": "achievements", "desc": "Ваши награды", "id": "ach", "icon": "*"},
@@ -1052,8 +1164,8 @@ class Engine:
                     self.state = GameState.MODE_SELECT  # Переходим к выбору режима
                 elif btn_data["action"] == "achievements":
                     self.menu_page = "achievements"
-                elif btn_data["action"] == "modules":
-                    self.menu_page = "modules"
+                elif btn_data["action"] == "shop":
+                    self.menu_page = "shop"
                 elif btn_data["action"] == "skins":
                     self.menu_page = "skins"
                 elif btn_data["action"] == "settings":
@@ -1314,18 +1426,20 @@ class Engine:
             pygame.draw.rect(screen, (35, 20, 20), dialog_rect, border_radius=15)
             pygame.draw.rect(screen, COLORS["enemy"], dialog_rect, 3, border_radius=15)
             
-            warn_title = self.font_large.render("СБРОС СТАТИСТИКИ", True, COLORS["enemy"])
+            warn_title = self.font_large.render("ПОЛНЫЙ СБРОС ПРОГРЕССА", True, COLORS["enemy"])
             screen.blit(warn_title, warn_title.get_rect(center=(WIDTH // 2, dialog_y + 58)))
             
             for li, line in enumerate([
-                "Все счётчики будут обнулены.",
-                "Все разблокированные скины будут",
-                "заблокированы (кроме стандартного).",
-                "Это действие нельзя отменить!"
+                "Будет удалено ВСЁ:",
+                "• Статистика и рекорды",
+                "• Вся валюта (до 0)",
+                "• Все модули и способности",
+                "• Все достижения и скины",
+                "Это действие НЕЛЬЗЯ отменить!"
             ]):
-                col = COLORS["enemy"] if li == 3 else (210, 210, 230)
+                col = COLORS["enemy"] if li in (0, 5) else (210, 210, 230)
                 t = self.font_small.render(line, True, col)
-                screen.blit(t, t.get_rect(center=(WIDTH // 2, dialog_y + 130 + li * 38)))
+                screen.blit(t, t.get_rect(center=(WIDTH // 2, dialog_y + 115 + li * 32)))
             
             btn_y = dialog_y + dialog_h - 80
             btn_w, btn_h = 210, 55
@@ -1345,12 +1459,24 @@ class Engine:
             screen.blit(nt, nt.get_rect(center=no_rect.center))
             
             if yes_hover and pygame.mouse.get_pressed()[0]:
-                # Сброс статистики
+                # Полный сброс всего прогресса
                 default_stats = {
                     "games_played": 0, "total_kills": 0, "total_playtime": 0,
                     "best_score": 0, "best_time": 0, "max_level": 0, "max_wave": 0
                 }
                 self.save_system.data["stats"] = default_stats
+                # Сброс валюты
+                self.save_system.data["currency"] = 0
+                # Сброс модулей
+                self.save_system.data["modules"] = {
+                    "health": 0, "damage": 0, "speed": 0, "fire_rate": 0, "crit": 0
+                }
+                # Сброс способностей
+                self.save_system.data["owned_abilities"] = []
+                self.save_system.data["active_ability"] = ""
+                # Сброс достижений
+                ach_default = {k: False for k in AchievementSystem.ACHIEVEMENTS}
+                self.save_system.data["achievements"] = ach_default
                 # Блокировка всех скинов кроме default
                 self.save_system.data["unlocked_skins"] = ["default"]
                 self.save_system.data["current_skin"] = "default"
@@ -1489,28 +1615,7 @@ class Engine:
         scroll_surface.blit(sec_t2, (20, y + 8))
         y += 50
         
-        # Автострельба
-        auto_card = pygame.Rect(10, y, inner_w, 55)
-        pygame.draw.rect(scroll_surface, (40, 50, 70), auto_card, border_radius=10)
-        pygame.draw.rect(scroll_surface, COLORS["card_border"], auto_card, 2, border_radius=10)
-        at = self.font_small.render("АВТОСТРЕЛЬБА:", True, COLORS["ui"])
-        scroll_surface.blit(at, (20, y + 15))
-        is_on = settings["auto_fire"]
-        toggle_bg = pygame.Rect(inner_w - 95, y + 8, 80, 38)
-        toggle_col = (0, 180, 140) if is_on else (50, 50, 70)
-        pygame.draw.rect(scroll_surface, toggle_col, toggle_bg, border_radius=19)
-        pygame.draw.rect(scroll_surface, COLORS["player"] if is_on else (100,100,110), toggle_bg, 2, border_radius=19)
-        tc_x = toggle_bg.right - 21 if is_on else toggle_bg.left + 21
-        pygame.draw.circle(scroll_surface, (255,255,255) if is_on else (150,150,160), (tc_x, toggle_bg.centery), 14)
-        # Hover for toggle
-        scroll_toggle = pygame.Rect(container_x + 2 + inner_w - 95, container_y + 2 + y + 8 - self.settings_scroll, 80, 38)
-        if scroll_toggle.collidepoint(mouse_pos) and container_rect.collidepoint(mouse_pos) and mouse_clicked:
-            settings["auto_fire"] = not settings["auto_fire"]
-            self.save_system.save()
-            pygame.time.delay(200)
-        y += 62
-        
-        # Интервал волн
+        # Интервал волн (auto-fire убрана из настроек — используйте кнопку)
         interval_card = pygame.Rect(10, y, inner_w, 65)
         pygame.draw.rect(scroll_surface, (40, 50, 70), interval_card, border_radius=10)
         pygame.draw.rect(scroll_surface, COLORS["card_border"], interval_card, 2, border_radius=10)
@@ -1543,7 +1648,7 @@ class Engine:
         cursor_card = pygame.Rect(10, y, inner_w, 55)
         pygame.draw.rect(scroll_surface, (40, 50, 70), cursor_card, border_radius=10)
         pygame.draw.rect(scroll_surface, COLORS["card_border"], cursor_card, 2, border_radius=10)
-        cl = self.font_small.render("КУРСОР:", True, COLORS["ui"])
+        cl = self.font_small.render("УКАЗАТЕЛЬ МЫШИ:", True, COLORS["ui"])
         scroll_surface.blit(cl, (20, y + 15))
         cursor_mode = settings.get("cursor_mode", "game")
         cur_opts = [("Игровой", "game"), ("Системный", "system")]
@@ -1897,21 +2002,29 @@ class Engine:
         screen.blit(glow_surf, (title_rect.x - 20, title_rect.y - 20))
         screen.blit(title, title_rect)
 
-        # Проверка разблокировок
+        # Проверка разблокировок (обновлённые требования)
         unlocked = self.save_system.data["unlocked_skins"]
         current = self.save_system.data["current_skin"]
         stats = self.save_system.data["stats"]
-        if stats["total_kills"] >= 100 and "red" not in unlocked:
+        if stats["total_kills"] >= 500 and "red" not in unlocked:
             unlocked.append("red"); self.save_system.save()
-        if stats["max_level"] >= 10 and "purple" not in unlocked:
+        if stats["max_level"] >= 15 and "purple" not in unlocked:
             unlocked.append("purple"); self.save_system.save()
-        if stats["best_score"] >= 5000 and "gold" not in unlocked:
+        if stats["best_score"] >= 10000 and "gold" not in unlocked:
             unlocked.append("gold"); self.save_system.save()
-        if stats["best_time"] >= 300 and "green" not in unlocked:
+        if stats["best_time"] >= 600 and "green" not in unlocked:
             unlocked.append("green"); self.save_system.save()
-        if getattr(self, 'dash_count', 0) >= 50 and "pink" not in unlocked:
+        # cyan: 50 достижений — через achievements count
+        ach_count = sum(1 for v in self.save_system.data["achievements"].values() if v)
+        if ach_count >= 30 and "cyan" not in unlocked:
+            unlocked.append("cyan"); self.save_system.save()
+        if stats["total_kills"] >= 2000 and "orange" not in unlocked:
+            unlocked.append("orange"); self.save_system.save()
+        if stats["max_level"] >= 25 and "white" not in unlocked:
+            unlocked.append("white"); self.save_system.save()
+        if getattr(self, 'dash_count', 0) >= 100 and "pink" not in unlocked:
             unlocked.append("pink"); self.save_system.save()
-        if stats["total_kills"] >= 1000 and "dark" not in unlocked:
+        if stats["total_kills"] >= 5000 and "dark" not in unlocked:
             unlocked.append("dark"); self.save_system.save()
 
         # Инициализация скролла
@@ -2514,26 +2627,26 @@ class Engine:
         
         else:  # perks tab
             perks_data = [
-                ("+HP / +HP БОЛЬШОЙ", "common/uncommon", "Увеличивает максимальное здоровье. Берите если нужна выживаемость."),
+                ("+HP / +HP БОЛЬШОЙ", "common/uncommon", "Увеличивает максимальное здоровье. Берите для выживаемости."),
                 ("+УРОН / +УРОН БОЛЬШОЙ", "common/uncommon", "Прямое увеличение урона всех пуль. Ключевой перк для ДПС."),
-                ("СКОРОСТРЕЛЬНОСТЬ", "common/rare", "Уменьшает задержку между выстрелами. Минимум 75мс."),
-                ("СКОРОСТЬ", "common/uncommon", "Увеличивает скорость передвижения. Макс. 5 стаков."),
-                ("КРИТ ШАНС / КРИТ УРОН", "uncommon/epic", "Критические удары наносят 2x+ урона. Работает вместе."),
+                ("СКОРОСТРЕЛЬНОСТЬ", "common/rare", "Уменьшает задержку между выстрелами. Минимум 50мс задержки."),
+                ("СКОРОСТЬ", "common/uncommon", "Увеличивает скорость передвижения. Максимум 5 стаков."),
+                ("КРИТ ШАНС / КРИТ УРОН", "uncommon/epic", "Критические удары наносят 2x+ урона. Работают вместе."),
                 ("МУЛЬТИВЫСТРЕЛ", "rare/epic", "Стреляете несколькими пулями в разные стороны. Макс 6 пуль."),
-                ("ДВОЙНОЙ ВЫСТРЕЛ", "uncommon", "2-3 пули в одном направлении вместо одной. Макс 3 стака."),
+                ("ДВОЙНОЙ ВЫСТРЕЛ", "uncommon", "Дополнительные пули летят вслед за основной (--|). Макс 3 стека."),
                 ("ПРОБИТИЕ", "uncommon/rare", "Пули проходят сквозь врагов не исчезая."),
-                ("ЩИТ", "common/uncommon", "Дополнительный барьер HP, восстанавливается при пополнении."),
+                ("ЩИТ", "common/uncommon", "Дополнительный барьер HP, поглощает урон вместо здоровья."),
                 ("ВАМПИРИЗМ", "uncommon/rare", "Восстанавливает HP за каждый нанесённый урон. Макс 75%."),
                 ("РЕГЕНЕРАЦИЯ", "rare", "Постепенно восстанавливает HP каждую секунду."),
                 ("БРОНЯ", "epic", "Снижает весь получаемый урон. Макс 60%. Одноразовый перк."),
-                ("ОРБИТАЛЬНАЯ ЗАЩИТА", "legendary", "Снаряды вращаются вокруг вас, поражая врагов рядом."),
-                ("ВЗРЫВНЫЕ ПУЛИ", "legendary", "Каждое попадание вызывает взрыв в радиусе 90px."),
-                ("ЗАМОРАЖИВАНИЕ", "legendary", "Пули замораживают врагов на 2 секунды."),
-                ("ЯД", "legendary", "Пули наносят урон яда 15 HP/сек в течение 3 секунд."),
-                ("ЦЕПНАЯ МОЛНИЯ", "legendary", "Урон перепрыгивает на ближайших врагов в радиусе 300px."),
+                ("ОРБИТАЛЬНАЯ ЗАЩИТА", "legendary", "Снаряды вращаются вокруг вас, поражая ближних врагов."),
+                ("ВЗРЫВНЫЕ ПУЛИ", "legendary", "Каждое попадание вызывает взрыв вокруг врага."),
+                ("ЗАМОРАЖИВАНИЕ", "legendary", "Пули замедляют врагов вдвое на несколько секунд."),
+                ("ЯД", "legendary", "Пули наносят 15 урона в секунду в течение 3 секунд."),
+                ("ЦЕПНАЯ МОЛНИЯ", "legendary", "Урон перепрыгивает на ближних врагов вокруг цели."),
                 ("ОТРАЖЕНИЕ", "legendary", "Отражает 25% получаемого урона обратно во врага."),
-                ("ШИПЫ", "legendary", "Враги получают урон при атаке вас."),
-                ("ПОЛНОЕ ВОССТАНОВЛЕНИЕ", "epic", "Одноразовый: немедленно восстанавливает все HP и щит."),
+                ("ШИПЫ", "legendary", "Враги получают 10 урона при каждой атаке на вас."),
+                ("ПОЛНОЕ ВОССТАНОВЛЕНИЕ", "epic", "Одноразовый: немедленно восстанавливает всё HP и щит."),
             ]
             card_h = 85
             spacing = 12

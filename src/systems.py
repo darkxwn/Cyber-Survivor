@@ -80,33 +80,29 @@ class SaveSystem:
             "currency": 0,
             "achievements": {
                 "first_blood": False,
-                "survivor_10": False,
-                "survivor_25": False,
-                "killer_100": False,
-                "killer_500": False,
-                "killer_1000": False,
-                "wave_master_5": False,
-                "wave_master_10": False,
-                "wave_master_20": False,
-                "level_expert_10": False,
-                "level_expert_20": False,
-                "collector": False,
-                "spender": False,
+                "killer_10": False, "killer_50": False, "killer_100": False,
+                "killer_250": False, "killer_500": False, "killer_1000": False, "killer_2000": False,
+                "survivor_1": False, "survivor_5": False, "survivor_10": False,
+                "survivor_20": False, "survivor_30": False, "survivor_60": False,
+                "wave_master_3": False, "wave_master_5": False, "wave_master_10": False,
+                "wave_master_15": False, "wave_master_20": False, "wave_master_30": False,
+                "level_expert_5": False, "level_expert_10": False,
+                "level_expert_20": False, "level_expert_30": False,
+                "collector_1000": False, "collector_5000": False, "collector_10000": False,
+                "spender": False, "spender_25": False,
                 "perfectionist": False,
-                "speed_demon": False,
-                "tank": False,
+                "speed_demon": False, "speed_demon_max": False,
+                "tank": False, "tank_2": False,
                 "glass_cannon": False,
-                "dasher": False,
-                "multigunner": False,
-                "survivor_5": False,
-                "killer_50": False,
-                "wave_master_3": False,
-                "level_expert_5": False,
-                "shielder": False,
-                "poison_master": False,
-                "lightning_master": False,
-                "orbital_master": False,
-                "survivor_1": False
+                "shielder_ach": False, "shielder_2": False,
+                "dasher": False, "dasher_50": False, "dasher_200": False,
+                "multigunner": False, "multigunner_max": False,
+                "poison_master": False, "lightning_master": False,
+                "orbital_master": False, "freeze_master": False,
+                "explosion_master": False, "reflect_master": False,
+                "vampire": False, "sniper_ach": False,
+                "games_10": False, "games_50": False, "games_100": False,
+                "score_1000": False, "score_5000": False, "score_20000": False,
             }
         }
     
@@ -176,21 +172,26 @@ class Achievement:
 
 class AchievementSystem:
     ACHIEVEMENTS = {
+        # === УБИЙСТВА (многоуровневые) ===
         "first_blood": Achievement(
             "first_blood", "Первая кровь", "Убейте первого врага",
             lambda engine: engine.kills >= 1, 25
         ),
-        "survivor_10": Achievement(
-            "survivor_10", "Выживший", "Продержитесь 10 минут",
-            lambda engine: engine.time_survived >= 600, 100
+        "killer_10": Achievement(
+            "killer_10", "Охотник I", "Убейте 10 врагов за игру",
+            lambda engine: engine.kills >= 10, 30
         ),
-        "survivor_25": Achievement(
-            "survivor_25", "Мастер выживания", "Продержитесь 25 минут",
-            lambda engine: engine.time_survived >= 1500, 250
+        "killer_50": Achievement(
+            "killer_50", "Охотник II", "Убейте 50 врагов за игру",
+            lambda engine: engine.kills >= 50, 60
         ),
         "killer_100": Achievement(
-            "killer_100", "Убийца", "Убейте 100 врагов за игру",
+            "killer_100", "Убийца I", "Убейте 100 врагов за игру",
             lambda engine: engine.kills >= 100, 100
+        ),
+        "killer_250": Achievement(
+            "killer_250", "Убийца II", "Убейте 250 врагов за игру",
+            lambda engine: engine.kills >= 250, 175
         ),
         "killer_500": Achievement(
             "killer_500", "Серийный убийца", "Убейте 500 врагов за игру",
@@ -200,50 +201,12 @@ class AchievementSystem:
             "killer_1000", "Геноцид", "Убейте 1000 врагов за игру",
             lambda engine: engine.kills >= 1000, 500
         ),
-        "wave_master_5": Achievement(
-            "wave_master_5", "Воин волн", "Пройдите 5 волн",
-            lambda engine: engine.wave_system.current_wave >= 6, 100
+        "killer_2000": Achievement(
+            "killer_2000", "Истребитель", "Убейте 2000 врагов за игру",
+            lambda engine: engine.kills >= 2000, 800
         ),
-        "wave_master_10": Achievement(
-            "wave_master_10", "Мастер волн", "Пройдите 10 волн",
-            lambda engine: engine.wave_system.current_wave >= 11, 200
-        ),
-        "wave_master_20": Achievement(
-            "wave_master_20", "Легенда волн", "Пройдите 20 волн",
-            lambda engine: engine.wave_system.current_wave >= 21, 500
-        ),
-        "level_expert_10": Achievement(
-            "level_expert_10", "Эксперт", "Достигните 10 уровня",
-            lambda engine: engine.player.level >= 10, 150
-        ),
-        "level_expert_20": Achievement(
-            "level_expert_20", "Легенда", "Достигните 20 уровня",
-            lambda engine: engine.player.level >= 20, 300
-        ),
-        "collector": Achievement(
-            "collector", "Коллекционер", "Накопите 1000 валюты",
-            lambda engine: engine.save_system.data["currency"] >= 1000, 200
-        ),
-        "spender": Achievement(
-            "spender", "Транжира", "Потратьте 500 валюты на модули",
-            lambda engine: sum(engine.save_system.data["modules"].values()) >= 25, 150
-        ),
-        "perfectionist": Achievement(
-            "perfectionist", "Перфекционист", "Пройдите волну без получения урона",
-            lambda engine: hasattr(engine, 'no_damage_wave') and engine.no_damage_wave, 300
-        ),
-        "speed_demon": Achievement(
-            "speed_demon", "Демон скорости", "Наберите 10+ к скорости",
-            lambda engine: engine.player.upgrades.get("speed", 0) >= 10, 200
-        ),
-        "tank": Achievement(
-            "tank", "Танк", "Наберите 200+ HP",
-            lambda engine: engine.player.max_hp >= 200, 150
-        ),
-        "glass_cannon": Achievement(
-            "glass_cannon", "Стеклянная пушка", "Имейте 50+ урона при <100 HP",
-            lambda engine: engine.player.dmg >= 50 and engine.player.max_hp < 100, 250
-        ),
+        
+        # === ВЫЖИВАНИЕ (многоуровневые) ===
         "survivor_1": Achievement(
             "survivor_1", "Первые минуты", "Продержитесь 1 минуту",
             lambda engine: engine.time_survived >= 60, 25
@@ -252,30 +215,146 @@ class AchievementSystem:
             "survivor_5", "Бывалый", "Продержитесь 5 минут",
             lambda engine: engine.time_survived >= 300, 75
         ),
-        "killer_50": Achievement(
-            "killer_50", "Охотник", "Убейте 50 врагов за игру",
-            lambda engine: engine.kills >= 50, 50
+        "survivor_10": Achievement(
+            "survivor_10", "Выживший I", "Продержитесь 10 минут",
+            lambda engine: engine.time_survived >= 600, 100
         ),
+        "survivor_20": Achievement(
+            "survivor_20", "Выживший II", "Продержитесь 20 минут",
+            lambda engine: engine.time_survived >= 1200, 200
+        ),
+        "survivor_30": Achievement(
+            "survivor_30", "Выживший III", "Продержитесь 30 минут",
+            lambda engine: engine.time_survived >= 1800, 350
+        ),
+        "survivor_60": Achievement(
+            "survivor_60", "Мастер выживания", "Продержитесь 60 минут",
+            lambda engine: engine.time_survived >= 3600, 700
+        ),
+        
+        # === ВОЛНЫ (многоуровневые) ===
         "wave_master_3": Achievement(
             "wave_master_3", "Новобранец", "Пройдите 3 волны",
             lambda engine: engine.wave_system.current_wave >= 4, 50
         ),
+        "wave_master_5": Achievement(
+            "wave_master_5", "Воин волн I", "Пройдите 5 волн",
+            lambda engine: engine.wave_system.current_wave >= 6, 100
+        ),
+        "wave_master_10": Achievement(
+            "wave_master_10", "Воин волн II", "Пройдите 10 волн",
+            lambda engine: engine.wave_system.current_wave >= 11, 200
+        ),
+        "wave_master_15": Achievement(
+            "wave_master_15", "Мастер волн I", "Пройдите 15 волн",
+            lambda engine: engine.wave_system.current_wave >= 16, 300
+        ),
+        "wave_master_20": Achievement(
+            "wave_master_20", "Мастер волн II", "Пройдите 20 волн",
+            lambda engine: engine.wave_system.current_wave >= 21, 500
+        ),
+        "wave_master_30": Achievement(
+            "wave_master_30", "Легенда волн", "Пройдите 30 волн",
+            lambda engine: engine.wave_system.current_wave >= 31, 800
+        ),
+        
+        # === УРОВНИ ИГРОКА (многоуровневые) ===
         "level_expert_5": Achievement(
             "level_expert_5", "Ученик", "Достигните 5 уровня",
             lambda engine: engine.player.level >= 5, 75
         ),
-        "shielder": Achievement(
-            "shielder", "Щитоносец", "Наберите 300+ щита",
-            lambda engine: engine.player.max_shield >= 300, 150
+        "level_expert_10": Achievement(
+            "level_expert_10", "Эксперт I", "Достигните 10 уровня",
+            lambda engine: engine.player.level >= 10, 150
         ),
+        "level_expert_20": Achievement(
+            "level_expert_20", "Эксперт II", "Достигните 20 уровня",
+            lambda engine: engine.player.level >= 20, 300
+        ),
+        "level_expert_30": Achievement(
+            "level_expert_30", "Легенда уровней", "Достигните 30 уровня",
+            lambda engine: engine.player.level >= 30, 500
+        ),
+        
+        # === ЭКОНОМИКА ===
+        "collector_1000": Achievement(
+            "collector_1000", "Коллекционер I", "Накопите 1000 валюты",
+            lambda engine: engine.save_system.data["currency"] >= 1000, 200
+        ),
+        "collector_5000": Achievement(
+            "collector_5000", "Коллекционер II", "Накопите 5000 валюты",
+            lambda engine: engine.save_system.data["currency"] >= 5000, 400
+        ),
+        "collector_10000": Achievement(
+            "collector_10000", "Магнат", "Накопите 10000 валюты",
+            lambda engine: engine.save_system.data["currency"] >= 10000, 700
+        ),
+        "spender": Achievement(
+            "spender", "Транжира I", "Вложите 10+ уровней модулей",
+            lambda engine: sum(engine.save_system.data["modules"].values()) >= 10, 150
+        ),
+        "spender_25": Achievement(
+            "spender_25", "Транжира II", "Вложите 25+ уровней модулей",
+            lambda engine: sum(engine.save_system.data["modules"].values()) >= 25, 300
+        ),
+        
+        # === БОЕВЫЕ СТИЛИ ===
+        "perfectionist": Achievement(
+            "perfectionist", "Перфекционист", "Пройдите волну без получения урона",
+            lambda engine: hasattr(engine, 'no_damage_wave') and engine.no_damage_wave, 300
+        ),
+        "speed_demon": Achievement(
+            "speed_demon", "Демон скорости I", "Наберите 5+ к скорости",
+            lambda engine: engine.player.upgrades.get("speed", 0) >= 5, 150
+        ),
+        "speed_demon_max": Achievement(
+            "speed_demon_max", "Демон скорости II", "Наберите 10+ к скорости",
+            lambda engine: engine.player.upgrades.get("speed", 0) >= 10, 250
+        ),
+        "tank": Achievement(
+            "tank", "Танк I", "Наберите 200+ HP",
+            lambda engine: engine.player.max_hp >= 200, 150
+        ),
+        "tank_2": Achievement(
+            "tank_2", "Танк II", "Наберите 500+ HP",
+            lambda engine: engine.player.max_hp >= 500, 300
+        ),
+        "glass_cannon": Achievement(
+            "glass_cannon", "Стеклянная пушка", "50+ урона при <100 HP",
+            lambda engine: engine.player.dmg >= 50 and engine.player.max_hp < 100, 250
+        ),
+        "shielder_ach": Achievement(
+            "shielder_ach", "Щитоносец I", "Наберите 200+ щита",
+            lambda engine: engine.player.max_shield >= 200, 150
+        ),
+        "shielder_2": Achievement(
+            "shielder_2", "Щитоносец II", "Наберите 500+ щита",
+            lambda engine: engine.player.max_shield >= 500, 300
+        ),
+        
+        # === УМЕНИЯ ===
         "dasher": Achievement(
-            "dasher", "Мастер рывка", "Используйте рывок 50 раз",
-            lambda engine: getattr(engine, 'dash_count', 0) >= 50, 100
+            "dasher", "Мастер рывка I", "Используйте рывок 25 раз",
+            lambda engine: getattr(engine, 'dash_count', 0) >= 25, 75
+        ),
+        "dasher_50": Achievement(
+            "dasher_50", "Мастер рывка II", "Используйте рывок 50 раз",
+            lambda engine: getattr(engine, 'dash_count', 0) >= 50, 150
+        ),
+        "dasher_200": Achievement(
+            "dasher_200", "Мастер рывка III", "Используйте рывок 200 раз",
+            lambda engine: getattr(engine, 'dash_count', 0) >= 200, 300
         ),
         "multigunner": Achievement(
-            "multigunner", "Многозарядный", "Иметь 5+ пуль одновременно",
-            lambda engine: engine.player.multishot >= 5, 200
+            "multigunner", "Многозарядный I", "Иметь 3+ пули одновременно",
+            lambda engine: engine.player.multishot >= 3, 150
         ),
+        "multigunner_max": Achievement(
+            "multigunner_max", "Многозарядный II", "Иметь 6 пуль одновременно",
+            lambda engine: engine.player.multishot >= 6, 300
+        ),
+        
+        # === СПЕЦИАЛЬНЫЕ ПЕРКИ ===
         "poison_master": Achievement(
             "poison_master", "Отравитель", "Взять перк яда",
             lambda engine: hasattr(engine.player, 'poison_bullets') and engine.player.poison_bullets, 100
@@ -287,6 +366,52 @@ class AchievementSystem:
         "orbital_master": Achievement(
             "orbital_master", "Орбитальщик", "Взять орбитальную защиту",
             lambda engine: hasattr(engine.player, 'orbital_bullets') and engine.player.orbital_bullets > 0, 100
+        ),
+        "freeze_master": Achievement(
+            "freeze_master", "Ледяной маг", "Взять перк заморозки",
+            lambda engine: hasattr(engine.player, 'freeze_bullets') and engine.player.freeze_bullets, 100
+        ),
+        "explosion_master": Achievement(
+            "explosion_master", "Подрывник", "Взять перк взрывных пуль",
+            lambda engine: hasattr(engine.player, 'explosive_bullets') and engine.player.explosive_bullets, 100
+        ),
+        "reflect_master": Achievement(
+            "reflect_master", "Зеркало", "Взять перк отражения",
+            lambda engine: hasattr(engine.player, 'reflect_damage') and engine.player.reflect_damage > 0, 100
+        ),
+        
+        # === ОСОБЫЕ ДОСТИЖЕНИЯ ===
+        "vampire": Achievement(
+            "vampire", "Вампир", "Набрать 50%+ вампиризма",
+            lambda engine: engine.player.lifesteal >= 0.5, 200
+        ),
+        "sniper_ach": Achievement(
+            "sniper_ach", "Снайпер", "Иметь 50%+ крит шанс",
+            lambda engine: engine.player.crit_chance >= 0.5, 200
+        ),
+        "games_10": Achievement(
+            "games_10", "Ветеран I", "Сыграйте 10 игр",
+            lambda engine: engine.save_system.data["stats"]["games_played"] >= 10, 100
+        ),
+        "games_50": Achievement(
+            "games_50", "Ветеран II", "Сыграйте 50 игр",
+            lambda engine: engine.save_system.data["stats"]["games_played"] >= 50, 300
+        ),
+        "games_100": Achievement(
+            "games_100", "Ветеран III", "Сыграйте 100 игр",
+            lambda engine: engine.save_system.data["stats"]["games_played"] >= 100, 600
+        ),
+        "score_1000": Achievement(
+            "score_1000", "Счётовод I", "Набрать 1000 очков за игру",
+            lambda engine: engine.score >= 1000, 75
+        ),
+        "score_5000": Achievement(
+            "score_5000", "Счётовод II", "Набрать 5000 очков за игру",
+            lambda engine: engine.score >= 5000, 150
+        ),
+        "score_20000": Achievement(
+            "score_20000", "Счётовод III", "Набрать 20000 очков за игру",
+            lambda engine: engine.score >= 20000, 400
         ),
     }
     
@@ -378,7 +503,7 @@ class PerkManager:
     }
     
     MAX_PERK_STACKS = {
-        "hp": 20, "hp_big": 10, "dmg": 20, "dmg_big": 10,
+        "hp": 10, "hp_big": 5, "dmg": 20, "dmg_big": 10,
         "fire_rate": 8, "fire_rate_big": 4,
         "speed": 10, "speed_big": 5,
         "multishot": 4, "multishot_big": 2,
@@ -387,7 +512,7 @@ class PerkManager:
         "regen": 10, "armor": 3,
         "crit": 10, "crit_big": 5, "crit_damage": 3,
         "piercing": 5, "piercing_big": 3,
-        "bullet_size": 3, "bullet_speed": 5, "bullet_lifetime": 5,
+        "bullet_size": 2, "bullet_speed": 5, "bullet_lifetime": 5,
         "exp_magnet": 5, "exp_boost": 5, "exp_multiplier": 1, "gold_boost": 3,
         "dash_cooldown": 3, "dash_invuln": 3,
         "parallel_shot": 2,
@@ -397,58 +522,58 @@ class PerkManager:
     def get_available_perks(player: 'Player' = None) -> List[PerkOption]:
         all_perks = [
             # ===== БАЗОВЫЕ ХАРАКТЕРИСТИКИ =====
-            PerkOption("hp", "+25 MAX HP", "Увеличивает максимальное здоровье", "[+]", "common"),
-            PerkOption("hp_big", "+50 MAX HP", "Значительно увеличивает здоровье", "[++]", "uncommon"),
-            PerkOption("dmg", "+5 УРОН", "Увеличивает урон от пуль", "[!]", "common"),
-            PerkOption("dmg_big", "+15 УРОН", "Значительно увеличивает урон", "[!!]", "uncommon"),
-            PerkOption("fire_rate", "+15% СКОРОСТРЕЛЬНОСТЬ", "Стреляйте быстрее", "[>>]", "common"),
-            PerkOption("fire_rate_big", "+30% СКОРОСТРЕЛЬНОСТЬ", "Стреляйте намного быстрее", "[>>>]", "rare"),
-            PerkOption("speed", "+10% СКОРОСТЬ", "Двигайтесь быстрее", "[>]", "common"),
-            PerkOption("speed_big", "+25% СКОРОСТЬ", "Значительно увеличивает скорость", "[>>]", "uncommon"),
+            PerkOption("hp", "+25 MAX HP", "Увеличивает максимальное здоровье на 25", "[+]", "common"),
+            PerkOption("hp_big", "+50 MAX HP", "Значительно увеличивает здоровье на 50", "[++]", "uncommon"),
+            PerkOption("dmg", "+5 УРОН", "Каждая пуля наносит на 5 больше урона", "[!]", "common"),
+            PerkOption("dmg_big", "+15 УРОН", "Каждая пуля наносит на 15 больше урона", "[!!]", "uncommon"),
+            PerkOption("fire_rate", "+15% СКОРОСТРЕЛЬНОСТЬ", "Стреляйте быстрее — пули чаще", "[>>]", "common"),
+            PerkOption("fire_rate_big", "+30% СКОРОСТРЕЛЬНОСТЬ", "Сильное ускорение темпа стрельбы", "[>>>]", "rare"),
+            PerkOption("speed", "+10% СКОРОСТЬ", "Двигайтесь быстрее, уклоняйтесь легче", "[>]", "common"),
+            PerkOption("speed_big", "+25% СКОРОСТЬ", "Значительный прирост скорости движения", "[>>]", "uncommon"),
             
             # ===== КРИТЫ И МНОЖИТЕЛИ =====
-            PerkOption("crit", "+5% КРИТ ШАНС", "Больше критических ударов", "[*]", "uncommon"),
-            PerkOption("crit_big", "+15% КРИТ ШАНС", "Намного больше критов", "[**]", "rare"),
-            PerkOption("crit_damage", "+50% КРИТ УРОН", "Критические удары сильнее", "[***]", "epic"),
+            PerkOption("crit", "+5% КРИТ ШАНС", "Критические попадания: +5% вероятность", "[*]", "uncommon"),
+            PerkOption("crit_big", "+15% КРИТ ШАНС", "Намного больше критических ударов", "[**]", "rare"),
+            PerkOption("crit_damage", "+50% КРИТ УРОН", "Критические удары становятся намного сильнее", "[***]", "epic"),
             
             # ===== ВЫСТРЕЛЫ И ПРОБИТИЕ =====
-            PerkOption("multishot", "+1 ВЫСТРЕЛ", "Стреляйте несколькими пулями", "[|||]", "rare"),
-            PerkOption("twin_shot", "ДВОЙНОЙ ВЫСТРЕЛ", "2 пули в 1 направлении, макс 3 стека", "[=|]", "uncommon"),
-            PerkOption("piercing", "+1 ПРОБИТИЕ", "Пули пробивают врагов", "[->]", "uncommon"),
-            PerkOption("piercing_big", "+3 ПРОБИТИЕ", "Пули пробивают много врагов", "[->>]", "rare"),
+            PerkOption("multishot", "+1 ВЫСТРЕЛ", "Стреляйте несколькими пулями в разные стороны", "[|||]", "rare"),
+            PerkOption("twin_shot", "ДВОЙНОЙ ВЫСТРЕЛ", "Дополнительная пуля летит вслед за основной. Макс 3.", "[=|]", "uncommon"),
+            PerkOption("piercing", "+1 ПРОБИТИЕ", "Пули пробивают врагов и летят дальше", "[->]", "uncommon"),
+            PerkOption("piercing_big", "+3 ПРОБИТИЕ", "Пули пробивают сразу нескольких врагов", "[->>]", "rare"),
             
             # ===== ЗАЩИТА И ВЫЖИВАНИЕ =====
-            PerkOption("shield", "+50 ЩИТ", "Дополнительная защита", "[#]", "common"),
-            PerkOption("shield_big", "+100 ЩИТ", "Мощный щит", "[##]", "uncommon"),
-            PerkOption("lifesteal", "+10% ВАМПИРИЗМ", "Восстанавливайте HP от урона", "[<3]", "uncommon"),
-            PerkOption("lifesteal_big", "+25% ВАМПИРИЗМ", "Сильный вампиризм", "[<3<3]", "rare"),
-            PerkOption("regen", "РЕГЕНЕРАЦИЯ +1 HP/сек", "Постоянно восстанавливает здоровье", "[+~]", "rare"),
-            PerkOption("armor", "+20% БРОНЯ", "Уменьшает получаемый урон", "[[]", "epic"),
+            PerkOption("shield", "+50 ЩИТ", "Барьер поглощает урон вместо здоровья", "[#]", "common"),
+            PerkOption("shield_big", "+100 ЩИТ", "Мощный щит для защиты от атак", "[##]", "uncommon"),
+            PerkOption("lifesteal", "+10% ВАМПИРИЗМ", "Восстанавливайте здоровье с каждого попадания", "[<3]", "uncommon"),
+            PerkOption("lifesteal_big", "+25% ВАМПИРИЗМ", "Мощный вампиризм — частое восстановление", "[<3<3]", "rare"),
+            PerkOption("regen", "РЕГЕНЕРАЦИЯ +1 HP/сек", "Медленно восстанавливает здоровье со временем", "[+~]", "rare"),
+            PerkOption("armor", "+20% БРОНЯ", "Уменьшает весь получаемый урон на 20%", "[[]", "epic"),
             
             # ===== МОДИФИКАТОРЫ ПУЛЬ =====
-            PerkOption("bullet_size", "+50% РАЗМЕР ПУЛЬ", "Больше пули = легче попасть", "[O]", "common"),
-            PerkOption("bullet_speed", "+30% СКОРОСТЬ ПУЛЬ", "Пули летят быстрее", "[=>]", "common"),
-            PerkOption("bullet_lifetime", "+50% ДАЛЬНОСТЬ", "Пули летят дальше", "[==>]", "common"),
+            PerkOption("bullet_size", "+50% РАЗМЕР ПУЛЬ", "Крупнее пуля — проще попасть по врагу", "[O]", "common"),
+            PerkOption("bullet_speed", "+30% СКОРОСТЬ ПУЛЬ", "Пули летят быстрее, дальше уходят", "[=>]", "common"),
+            PerkOption("bullet_lifetime", "+50% ДАЛЬНОСТЬ", "Пули летят значительно дальше перед исчезновением", "[==>]", "common"),
             
             # ===== ОПЫТ И ПРОГРЕССИЯ =====
-            PerkOption("exp_magnet", "МАГНИТ +50%", "Притягивайте опыт издалека", "[<*>]", "uncommon"),
-            PerkOption("exp_boost", "БОНУС К ОПЫТУ +25%", "Получайте больше опыта", "[XP+]", "uncommon"),
-            PerkOption("exp_multiplier", "МНОЖИТЕЛЬ ОПЫТА x2", "Удваивает получаемый опыт", "[XP*2]", "rare"),
-            PerkOption("gold_boost", "+50% ВАЛЮТА", "Получайте больше валюты", "[$+]", "uncommon"),
+            PerkOption("exp_magnet", "МАГНИТ +50%", "Кристаллы опыта притягиваются на большее расстояние", "[<*>]", "uncommon"),
+            PerkOption("exp_boost", "БОНУС К ОПЫТУ +25%", "Получайте на 25% больше опыта от кристаллов", "[XP+]", "uncommon"),
+            PerkOption("exp_multiplier", "МНОЖИТЕЛЬ ОПЫТА x2", "Удваивает весь получаемый опыт", "[XP*2]", "rare"),
+            PerkOption("gold_boost", "+50% ВАЛЮТА", "Получайте больше монет после каждой игры", "[$+]", "uncommon"),
             
             # ===== ОСОБЫЕ СПОСОБНОСТИ =====
-            PerkOption("dash_cooldown", "-30% ПЕРЕЗАРЯДКА DASH", "Чаще используйте рывок", "[<-]", "rare"),
-            PerkOption("dash_invuln", "+50% НЕУЯЗВИМОСТЬ DASH", "Дольше неуязвимы при рывке", "[<*-]", "rare"),
+            PerkOption("dash_cooldown", "-30% ПЕРЕЗАРЯДКА РЫВКА", "Используйте рывок значительно чаще", "[<-]", "rare"),
+            PerkOption("dash_invuln", "+50% НЕУЯЗВИМОСТЬ РЫВКА", "Дольше неуязвимы во время рывка", "[<*-]", "rare"),
             
             # ===== УЛЬТЫ И ЛЕГЕНДАРНЫЕ (ОДНОРАЗОВЫЕ) =====
-            PerkOption("heal", "ПОЛНОЕ ВОССТАНОВЛЕНИЕ", "Восстанавливает все HP и щит", "[HEAL]", "epic"),
-            PerkOption("orbital", "ОРБИТАЛЬНАЯ ЗАЩИТА", "Пули вращаются вокруг вас", "[ORB]", "legendary"),
-            PerkOption("explosion", "ВЗРЫВНЫЕ ПУЛИ", "Пули взрываются при попадании", "[BOOM]", "legendary"),
-            PerkOption("freeze", "ЗАМОРАЖИВАНИЕ", "Замедляют врагов на 50%", "[ICE]", "legendary"),
-            PerkOption("poison", "ЯДОВИТЫЕ ПУЛИ", "Наносят урон со временем", "[POISON]", "legendary"),
-            PerkOption("chain", "ЦЕПНАЯ МОЛНИЯ", "Урон перескакивает на врагов", "[CHAIN]", "legendary"),
-            PerkOption("reflect", "ОТРАЖЕНИЕ", "Отражает 25% урона", "[REFLECT]", "legendary"),
-            PerkOption("thorns", "ШИПЫ", "Враги получают урон при атаке", "[THORNS]", "legendary"),
+            PerkOption("heal", "ПОЛНОЕ ВОССТАНОВЛЕНИЕ", "Немедленно восстанавливает всё HP и щит", "[HEAL]", "epic"),
+            PerkOption("orbital", "ОРБИТАЛЬНАЯ ЗАЩИТА", "Снаряды вращаются вокруг вас и бьют близких врагов", "[ORB]", "legendary"),
+            PerkOption("explosion", "ВЗРЫВНЫЕ ПУЛИ", "Каждое попадание создаёт взрыв вокруг врага", "[BOOM]", "legendary"),
+            PerkOption("freeze", "ЗАМОРАЖИВАНИЕ", "Пули замедляют врагов — они двигаются вдвое медленнее", "[ICE]", "legendary"),
+            PerkOption("poison", "ЯДОВИТЫЕ ПУЛИ", "Пули оставляют яд: 15 урона в секунду, 3 секунды", "[POISON]", "legendary"),
+            PerkOption("chain", "ЦЕПНАЯ МОЛНИЯ", "Урон перескакивает на ближних врагов вокруг цели", "[CHAIN]", "legendary"),
+            PerkOption("reflect", "ОТРАЖЕНИЕ", "25% получаемого урона возвращается врагу", "[REFLECT]", "legendary"),
+            PerkOption("thorns", "ШИПЫ", "Враги получают 10 урона при каждой атаке на вас", "[THORNS]", "legendary"),
         ]
         
         # Фильтруем одноразовые перки, которые уже взяты
