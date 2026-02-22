@@ -262,6 +262,59 @@ class Engine:
             for _dy in range(0, HEIGHT + 50, 50):
                 pygame.draw.circle(screen, (20, 26, 44), (_dx, _dy), 2)
 
+    # ===== UI HELPERS =====
+    CONTAINER_W = 1100
+    CONTAINER_Y_START = 130
+    CONTAINER_PADDING = 15
+    
+    def ui_draw_title(self, text: str, y: int = 60):
+        """Стандартный заголовок подменю с свечением"""
+        title = self.font_large.render(text, True, COLORS["player"])
+        title_rect = title.get_rect(center=(WIDTH // 2, y))
+        glow_surf = pygame.Surface((title_rect.width + 40, title_rect.height + 40), pygame.SRCALPHA)
+        for i in range(3):
+            alpha = 35 - i * 10
+            glow_t = self.font_large.render(text, True, (*COLORS["player_glow"], alpha))
+            glow_surf.blit(glow_t, (20 + i * 2, 20 + i * 2))
+        screen.blit(glow_surf, (title_rect.x - 20, title_rect.y - 20))
+        screen.blit(title, title_rect)
+        return title_rect
+    
+    def ui_container(self, w: int = None, x: int = None, y: int = None, h: int = None) -> tuple:
+        """Рисует стандартный контейнер, возвращает (rect, cont_x, cont_y, cont_w, cont_h)"""
+        cont_w = w or self.CONTAINER_W
+        cont_h = h or (HEIGHT - 280)
+        cont_x = x if x is not None else (WIDTH // 2 - cont_w // 2)
+        cont_y = y if y is not None else self.CONTAINER_Y_START
+        cont_rect = pygame.Rect(cont_x, cont_y, cont_w, cont_h)
+        pygame.draw.rect(screen, (15, 18, 25), cont_rect, border_radius=12)
+        pygame.draw.rect(screen, COLORS["card_border"], cont_rect, 2, border_radius=12)
+        return cont_rect, cont_x, cont_y, cont_w, cont_h
+    
+    def ui_button(self, rect: pygame.Rect, text: str, color=None, hover_color=None, 
+                  font=None, is_hover: bool = False, border_w: int = 2) -> None:
+        """Рисует стандартную кнопку"""
+        color = color or COLORS["card_border"]
+        hover_color = hover_color or COLORS["player"]
+        font = font or self.font_small
+        bc = hover_color if is_hover else color
+        bg = (40, 50, 68) if is_hover else (28, 34, 50)
+        pygame.draw.rect(screen, bg, rect, border_radius=10)
+        pygame.draw.rect(screen, bc, rect, border_w, border_radius=10)
+        t = font.render(text, True, bc)
+        screen.blit(t, t.get_rect(center=rect.center))
+    
+    def ui_scrollbar(self, cont_x: int, cont_y: int, cont_w: int, cont_h: int,
+                     total_h: int, scroll: int) -> None:
+        """Рисует скроллбар если нужен"""
+        max_scroll = max(0, total_h - cont_h)
+        if max_scroll > 0 and total_h > 0:
+            sb_h = max(30, int((cont_h / total_h) * cont_h))
+            sb_y = cont_y + 2 + int((scroll / max_scroll) * (cont_h - sb_h - 4))
+            sb_y = max(cont_y + 2, min(cont_y + cont_h - sb_h - 2, sb_y))
+            pygame.draw.rect(screen, COLORS["player"], 
+                           (cont_x + cont_w - 12, sb_y, 8, sb_h), border_radius=4)
+
     def reset_game(self):
         modules = self.save_system.data["modules"]
         skin = self.save_system.data["current_skin"]
@@ -343,32 +396,30 @@ class Engine:
                 if rel.length() > 0:
                     base_angle = math.degrees(math.atan2(rel.y, rel.x))
                     
-                    spread = 15 if self.player.multishot > 1 else 0
-                    start_angle = base_angle - (spread * (self.player.multishot - 1) / 2)
-                    
                     twin = getattr(self.player, 'twin_shot', 0)
-                    for i in range(self.player.multishot):
-                        angle = start_angle + i * spread
+                    total_bullets = self.player.multishot + twin
+                    
+                    # Параллельные выстрелы: все летят в одном направлении, но с боковым смещением
+                    if total_bullets > 1:
+                        # Перпендикулярное направление для смещения
+                        perp_angle = math.radians(base_angle + 90)
+                        perp = pygame.Vector2(math.cos(perp_angle), math.sin(perp_angle))
+                        spacing = 14  # пикселей между пулями
+                        offsets = []
+                        for i in range(total_bullets):
+                            offset_dist = (i - (total_bullets - 1) / 2) * spacing
+                            offsets.append(perp * offset_dist)
+                    else:
+                        offsets = [pygame.Vector2(0, 0)]
+                    
+                    for offset in offsets:
                         is_crit = random.random() < self.player.crit_chance
                         dmg = int(self.player.dmg * (self.player.crit_multiplier if is_crit else 1))
                         self.bullets.append(Bullet(
-                            self.player.pos, angle, self.player.bullet_speed,
+                            self.player.pos + offset, base_angle, self.player.bullet_speed,
                             dmg, self.player.piercing, self.player.bullet_size,
                             self.player.bullet_lifetime, is_crit
                         ))
-                        # Двойной выстрел: доп. пули летят ВСЛЕД за основной (--|)
-                        # Реализовано через задержку позиции — вторая пуля спавнится позади
-                        for tw in range(twin):
-                            delay_dist = (tw + 1) * 18  # px позади
-                            offset = pygame.Vector2(
-                                -math.cos(math.radians(angle)) * delay_dist,
-                                -math.sin(math.radians(angle)) * delay_dist
-                            )
-                            self.bullets.append(Bullet(
-                                self.player.pos + offset, angle, self.player.bullet_speed,
-                                dmg, self.player.piercing, self.player.bullet_size,
-                                self.player.bullet_lifetime, is_crit
-                            ))
                     
                     # Звук выстрела
                     self.sound_manager.play_sound("shoot")
@@ -491,6 +542,11 @@ class Engine:
                             self.sound_manager.play_sound("enemy_hit")
                         
                         # ====== ПРИМЕНЕНИЕ ЭФФЕКТОВ ======
+                        # Замедляющие пули
+                        if hasattr(self.player, 'slow_bullets') and self.player.slow_bullets:
+                            enemy.slow_duration = max(enemy.slow_duration, 2000)
+                            enemy.slow_factor = min(enemy.slow_factor, 0.6)
+                        
                         # Яд
                         if hasattr(self.player, 'poison_bullets') and self.player.poison_bullets:
                             enemy.poison_damage = 15  # урон в секунду (увеличено с 5)
@@ -637,9 +693,16 @@ class Engine:
                     d = self.player.pos - enemy.pos
                     if d.length() < 600:
                         shots = 3 if getattr(enemy, 'triple_shot', False) else 1
+                        # Slight lead on player
+                        bullet_spd = 5
+                        travel_time = d.length() / (bullet_spd * 60)
+                        predicted = self.player.pos + self.player.velocity * travel_time * 60 * 0.35
+                        aim_dir = predicted - enemy.pos
+                        if aim_dir.length() == 0:
+                            aim_dir = d
                         for si in range(shots):
                             angle_off = (si - shots // 2) * 12
-                            spd_vec = pygame.Vector2(d).normalize().rotate(angle_off) * 5
+                            spd_vec = pygame.Vector2(aim_dir).normalize().rotate(angle_off) * bullet_spd
                             self.enemy_bullets.append({
                                 'pos': pygame.Vector2(enemy.pos), 'vel': spd_vec,
                                 'dmg': enemy.dmg, 'birth': now_ms, 'lifetime': 2500,
@@ -650,7 +713,15 @@ class Engine:
                 if getattr(enemy, 'shoot_cooldown', 0) <= 0:
                     d = self.player.pos - enemy.pos
                     if d.length() < 700:
-                        spd_vec = pygame.Vector2(d).normalize() * 8  # быстрый снаряд
+                        # Упреждение: предсказываем позицию игрока
+                        bullet_speed_val = 8
+                        travel_time = d.length() / (bullet_speed_val * 60)
+                        predicted_pos = self.player.pos + self.player.velocity * travel_time * 60 * 0.6
+                        aim_dir = predicted_pos - enemy.pos
+                        if aim_dir.length() > 0:
+                            spd_vec = aim_dir.normalize() * bullet_speed_val
+                        else:
+                            spd_vec = pygame.Vector2(d).normalize() * bullet_speed_val
                         self.enemy_bullets.append({
                             'pos': pygame.Vector2(enemy.pos), 'vel': spd_vec,
                             'dmg': enemy.dmg, 'birth': now_ms, 'lifetime': 2000,
@@ -898,17 +969,26 @@ class Engine:
         
         current_y += exp_h + 12
         
-        # Компактные статы в одной строке под барами
-        stats_line = f"СЧЁТ: {self.score}  |  УБИЙСТВ: {self.kills}"
-        if self.game_mode == GameMode.WAVES:
-            stats_line += f"  |  ВОЛНА: {self.wave_system.current_wave}"
-        stats_line += f"  |  {int(self.time_survived)}s"
+        # Компактные статы — два ряда при необходимости
+        time_str = f"{int(self.time_survived // 60)}м{int(self.time_survived % 60)}с" if self.time_survived >= 60 else f"{int(self.time_survived)}с"
         
-        stat_bg = pygame.Rect(bar_x, current_y, bar_w, 28)
+        if self.game_mode == GameMode.WAVES:
+            line1 = f"СЧЁТ: {self.score}  |  УБИЙСТВ: {self.kills}"
+            line2 = f"ВОЛНА: {self.wave_system.current_wave}  |  ВРЕМЯ: {time_str}"
+        else:
+            line1 = f"СЧЁТ: {self.score}  |  УБИЙСТВ: {self.kills}"
+            line2 = f"ВРЕМЯ: {time_str}  |  ВРАГИ: {len(self.enemies)}"
+        
+        stat_h = 50
+        stat_bg = pygame.Rect(bar_x, current_y, bar_w, stat_h)
         pygame.draw.rect(screen, (25, 30, 45), stat_bg, border_radius=6)
         pygame.draw.rect(screen, COLORS["card_border"], stat_bg, 1, border_radius=6)
-        stats_text = self.font_tiny.render(stats_line, True, (180, 180, 200))
-        screen.blit(stats_text, (bar_x + bar_w//2 - stats_text.get_width()//2, current_y + 5))
+        stats_text1 = self.font_tiny.render(line1, True, (180, 180, 200))
+        stats_text2 = self.font_tiny.render(line2, True, (180, 180, 200))
+        screen.blit(stats_text1, (bar_x + bar_w//2 - stats_text1.get_width()//2, current_y + 6))
+        screen.blit(stats_text2, (bar_x + bar_w//2 - stats_text2.get_width()//2, current_y + 27))
+        
+        current_y += stat_h + 5
         
         # Единый виджет волны/режима в центре сверху
         wave_bg = pygame.Rect(WIDTH // 2 - 220, 20, 440, 46)
@@ -955,10 +1035,12 @@ class Engine:
         
         # Active ability HUD
         active_ab = self.save_system.data.get("active_ability", "")
-        AB_NAMES = {"dash_boost":"РЫВОК-УДАР","shield_pulse":"ЩИТОВОЙ ИМПУЛЬС","time_slow":"ЗАМЕДЛЕНИЕ ВРЕМЕНИ",
-                    "overdrive":"ПЕРЕГРУЗКА","nuke":"ЯДЕРНЫЙ ЗАРЯД"}
+        AB_NAMES = {"dash_boost":"РЫВОК-УДАР","shield_pulse":"ИМПУЛЬС ЩИТА","time_slow":"ЗАМЕДЛЕНИЕ",
+                    "overdrive":"ПЕРЕГРУЗКА","nuke":"ЯДЕРНЫЙ ЗАРЯД","heal_pulse":"ПУЛЬС ИСЦЕЛЕНИЯ",
+                    "bullet_storm":"ШТОРМ ПУЛЬ"}
         AB_COLORS = {"dash_boost":COLORS["player"],"shield_pulse":COLORS["shield"],"time_slow":(100,200,255),
-                     "overdrive":COLORS["warning"],"nuke":COLORS["enemy"]}
+                     "overdrive":COLORS["warning"],"nuke":COLORS["enemy"],"heal_pulse":(100,255,150),
+                     "bullet_storm":(255,180,50)}
         if active_ab and active_ab in AB_NAMES:
             ab_w, ab_h = 160, 50
             ab_x = WIDTH // 2 + 110
@@ -967,14 +1049,15 @@ class Engine:
             if self.ability_cooldown <= 0:
                 pygame.draw.rect(screen, (35, 45, 60), ab_bg, border_radius=10)
                 pygame.draw.rect(screen, ab_col, ab_bg, 2, border_radius=10)
-                at = self.font_tiny.render(f"[{pygame.key.name(self.save_system.data['controls'].get('ability', pygame.K_q)).upper()}] {AB_NAMES[active_ab]}", True, ab_col)
+                at = self.font_tiny.render(AB_NAMES[active_ab], True, ab_col)
             else:
                 pygame.draw.rect(screen, (25, 30, 42), ab_bg, border_radius=10)
                 pygame.draw.rect(screen, (70, 70, 85), ab_bg, 2, border_radius=10)
                 cd_sec = self.ability_cooldown / 1000
                 at = self.font_tiny.render(f"КД: {cd_sec:.1f}s", True, (130,130,145))
                 # Cooldown fill bar
-                ab_kd_map = {"dash_boost":0,"shield_pulse":6000,"time_slow":12000,"overdrive":15000,"nuke":20000}
+                ab_kd_map = {"dash_boost":0,"shield_pulse":6000,"time_slow":12000,"overdrive":15000,"nuke":20000,
+                             "heal_pulse":18000,"bullet_storm":10000}
                 max_cd = ab_kd_map.get(active_ab, 10000)
                 if max_cd > 0:
                     fill_w = int((1 - self.ability_cooldown / max_cd) * (ab_w - 8))
@@ -1317,32 +1400,15 @@ class Engine:
     
     def draw_stats_menu(self):
         """Улучшенное меню статистики с красивым дизайном"""
-        # Единый фон подменю
-        for i in range(HEIGHT):
-            progress = i / HEIGHT
-            r = int(8 + (18 - 8) * progress)
-            g = int(10 + (22 - 10) * progress)
-            b = int(20 + (38 - 20) * progress)
-            pygame.draw.line(screen, (r, g, b), (0, i), (WIDTH, i))
-        for _dx in range(0, WIDTH + 50, 50):
-            for _dy in range(0, HEIGHT + 50, 50):
-                pygame.draw.circle(screen, (20, 26, 44), (_dx, _dy), 2)
+        self._draw_submenu_bg()
         
         # Заголовок
-        title = self.font_large.render("СТАТИСТИКА", True, COLORS["player"])
-        title_rect = title.get_rect(center=(WIDTH // 2, 60))
-        glow_surf = pygame.Surface((title_rect.width + 40, title_rect.height + 40), pygame.SRCALPHA)
-        for i in range(3):
-            alpha = 35 - i * 10
-            glow_title = self.font_large.render("СТАТИСТИКА", True, (*COLORS["player_glow"], alpha))
-            glow_surf.blit(glow_title, (20 + i*2, 20 + i*2))
-        screen.blit(glow_surf, (title_rect.x - 20, title_rect.y - 20))
-        screen.blit(title, title_rect)
+        self.ui_draw_title("СТАТИСТИКА")
         
         # Единый контейнер
-        container_w = 1000
+        container_w = self.CONTAINER_W
         container_x = WIDTH // 2 - container_w // 2
-        container_y = 120
+        container_y = 110
         
         stats = self.save_system.data["stats"]
         
@@ -1496,34 +1562,19 @@ class Engine:
         if not hasattr(self, 'settings_scroll'):
             self.settings_scroll = 0
         
-        # Градиентный фон
-        for i in range(HEIGHT):
-            progress = i / HEIGHT
-            r = int(8 + (18 - 8) * progress)
-            g = int(10 + (22 - 10) * progress)
-            b = int(20 + (38 - 20) * progress)
-            pygame.draw.line(screen, (r, g, b), (0, i), (WIDTH, i))
+        self._draw_submenu_bg()
         
         # Заголовок
-        title = self.font_large.render("НАСТРОЙКИ", True, COLORS["player"])
-        title_rect = title.get_rect(center=(WIDTH // 2, 70))
-        glow_surf = pygame.Surface((title_rect.width + 40, title_rect.height + 40), pygame.SRCALPHA)
-        for i in range(3):
-            alpha = 35 - i * 10
-            offset = i * 2
-            glow_title = self.font_large.render("НАСТРОЙКИ", True, (*COLORS["player_glow"], alpha))
-            glow_surf.blit(glow_title, (20 + offset, 20 + offset))
-        screen.blit(glow_surf, (title_rect.x - 20, title_rect.y - 20))
-        screen.blit(title, title_rect)
+        self.ui_draw_title("НАСТРОЙКИ")
         
         mouse_pos = pygame.mouse.get_pos()
         mouse_clicked = pygame.mouse.get_pressed()[0]
         
         # Контейнер с прокруткой
-        container_w = 980
+        container_w = self.CONTAINER_W
         container_h = HEIGHT - 220
         container_x = WIDTH // 2 - container_w // 2
-        container_y = 120
+        container_y = 110
         container_rect = pygame.Rect(container_x, container_y, container_w, container_h)
         pygame.draw.rect(screen, (15, 18, 25), container_rect, border_radius=12)
         pygame.draw.rect(screen, COLORS["card_border"], container_rect, 2, border_radius=12)
@@ -1725,6 +1776,16 @@ class Engine:
                 self.save_system.data["stats"] = {"games_played":0,"total_kills":0,"total_playtime":0,"best_score":0,"best_time":0,"max_level":0,"max_wave":0}
                 self.save_system.data["unlocked_skins"] = ["default"]
                 self.save_system.data["current_skin"] = "default"
+                # Сброс валюты, модулей и способностей
+                self.save_system.data["currency"] = 0
+                self.save_system.data["modules"] = {"health":0,"damage":0,"speed":0,"fire_rate":0,"crit":0}
+                self.save_system.data["owned_abilities"] = []
+                self.save_system.data["active_ability"] = ""
+                # Сброс достижений
+                ach_default = {k: False for k in AchievementSystem.ACHIEVEMENTS}
+                self.save_system.data["achievements"] = ach_default
+                if "achievement_rewards_claimed" in self.save_system.data:
+                    self.save_system.data["achievement_rewards_claimed"] = {}
                 self.save_system.save()
                 self.show_stats_reset_confirmation = False
                 pygame.time.delay(200)
@@ -1801,9 +1862,9 @@ class Engine:
             _sst = self.font_tiny.render(st, True, sc)
             screen.blit(_sst, _sst.get_rect(center=(tx, sum_rect.centery)))
         
-        cont_x = WIDTH // 2 - 500
+        cont_x = WIDTH // 2 - self.CONTAINER_W // 2
         cont_y = 215
-        cont_w = 1000
+        cont_w = self.CONTAINER_W
         
         if self.shop_tab == "modules":
             # ---- MODULES TAB ----
@@ -1883,21 +1944,27 @@ class Engine:
             # ---- ABILITIES TAB ----
             # Все способности активируются одной кнопкой [Q] - только одна может быть активна
             ABILITIES = [
-                {"id": "dash_boost",   "name": "СВЕРХРЫВОК",      "cost": 200, "color": COLORS["player"],
-                 "desc": "Активная: Рывок наносит 30 урона врагам на пути (пассивный эффект).",
+                {"id": "dash_boost",   "name": "РЫВОК-УДАР",        "cost": 100, "color": COLORS["player"],
+                 "desc": "Рывок наносит 30 урона всем врагам на пути. Перезарядка: пассивный эффект.",
                  "icon": "[>>]"},
-                {"id": "shield_pulse", "name": "ИМПУЛЬС ЩИТА",    "cost": 250, "color": COLORS["shield"],
-                 "desc": "Активная: Взрыв отталкивает всех врагов на 250px. КД: 6с.",
+                {"id": "shield_pulse", "name": "ИМПУЛЬС ЩИТА",      "cost": 250, "color": COLORS["shield"],
+                 "desc": "Взрыв отталкивает всех врагов в радиусе 250px. КД: 6с.",
                  "icon": "[()]"},
-                {"id": "time_slow",    "name": "ЗАМЕДЛЕНИЕ",       "cost": 350, "color": (100, 200, 255),
-                 "desc": "Активная: Замедляет всех врагов на 70% в течение 3с. КД: 12с.",
+                {"id": "time_slow",    "name": "ЗАМЕДЛЕНИЕ",         "cost": 350, "color": (100, 200, 255),
+                 "desc": "Замедляет всех врагов на 60% на 4 секунды. КД: 12с.",
                  "icon": "[<<]"},
-                {"id": "overdrive",    "name": "ПЕРЕГРУЗКА",       "cost": 300, "color": COLORS["warning"],
-                 "desc": "Активная: +100% скорострельность на 5с. КД: 15с.",
+                {"id": "overdrive",    "name": "ПЕРЕГРУЗКА",         "cost": 300, "color": COLORS["warning"],
+                 "desc": "+100% скорострельность на 5с. КД: 15с.",
                  "icon": "[!!]"},
-                {"id": "nuke",         "name": "ЯДЕРНЫЙ ЗАРЯД",   "cost": 500, "color": COLORS["enemy"],
-                 "desc": "Активная: Взрыв радиус 400px, 150 урона всем врагам. КД: 20с.",
+                {"id": "nuke",         "name": "ЯДЕРНЫЙ ЗАРЯД",     "cost": 500, "color": COLORS["enemy"],
+                 "desc": "Взрыв радиус 400px, 150 урона всем врагам. КД: 20с.",
                  "icon": "[*]"},
+                {"id": "heal_pulse",   "name": "ПУЛЬС ИСЦЕЛЕНИЯ",   "cost": 400, "color": (100, 255, 150),
+                 "desc": "Восстанавливает 40% HP и создаёт щит на 3с. КД: 18с.",
+                 "icon": "[+]"},
+                {"id": "bullet_storm", "name": "ШТОРМ ПУЛЬ",        "cost": 450, "color": (255, 180, 50),
+                 "desc": "Выпускает 24 пули во все стороны. КД: 10с.",
+                 "icon": "[x]"},
             ]
             
             # Подсказка
@@ -2031,8 +2098,8 @@ class Engine:
         if not hasattr(self, 'skins_scroll'):
             self.skins_scroll = 0
 
-        # Размеры контейнера (аналогично достижениям)
-        container_w = 1100
+        # Размеры контейнера
+        container_w = self.CONTAINER_W
         container_h = HEIGHT - 280
         container_x = WIDTH // 2 - container_w // 2
         container_y = 140
@@ -2258,8 +2325,8 @@ class Engine:
         screen.blit(progress_text, (WIDTH // 2 - progress_text.get_width() // 2, 120))
         
         # Контейнер со скроллом
-        container_w = 1100
-        container_h = HEIGHT - 330
+        container_w = self.CONTAINER_W
+        container_h = HEIGHT - 290
         container_x = WIDTH // 2 - container_w // 2
         container_y = 180
         container_rect = pygame.Rect(container_x, container_y, container_w, container_h)
@@ -2439,9 +2506,9 @@ class Engine:
                     self.knowledge_scroll = 0
         
         # Контейнер
-        cont_x = WIDTH//2 - 550
+        cont_x = WIDTH//2 - self.CONTAINER_W//2
         cont_y = 170
-        cont_w = 1100
+        cont_w = self.CONTAINER_W
         cont_h = HEIGHT - 290
         cont_rect = pygame.Rect(cont_x, cont_y, cont_w, cont_h)
         pygame.draw.rect(screen, (15, 18, 25), cont_rect, border_radius=12)
@@ -2458,50 +2525,59 @@ class Engine:
         
         if self.knowledge_tab == "enemies":
             enemies_data = [
-                {"name": "БАЗОВЫЙ", "color": COLORS["enemy"], "shape": "circle",
-                 "desc": "Стандартный враг. Движется прямо к игроку с умеренной скоростью. Низкий HP, средний урон.",
-                 "stats": "HP: 30  Урон: 8  Скорость: 2.5  Опыт: 10"},
-                {"name": "БЫСТРЫЙ", "color": (255, 255, 100), "shape": "triangle",
-                 "desc": "Маленький и стремительный. Опасен в больших количествах. Быстро сближается с игроком.",
-                 "stats": "HP: 20  Урон: 6  Скорость: 5.0  Опыт: 15"},
-                {"name": "ТАНК", "color": COLORS["elite_enemy"], "shape": "square",
-                 "desc": "Тяжелобронированный враг. Медленно движется, но поглощает огромное количество урона.",
-                 "stats": "HP: 100  Урон: 15  Скорость: 1.5  Опыт: 30"},
-                {"name": "БОСС", "color": COLORS["boss"], "shape": "hexagon",
-                 "desc": "Элитный противник. Огромный HP, высокий урон. Появляется на поздних волнах.",
-                 "stats": "HP: 500  Урон: 25  Скорость: 2.0  Опыт: 200"},
-                {"name": "СНАЙПЕР", "color": (220, 80, 255), "shape": "diamond",
-                 "desc": "Медленный, но опасный. Держится на дистанции, наносит высокий урон при контакте.",
-                 "stats": "HP: 45  Урон: 20  Скорость: 1.2  Опыт: 25"},
-                {"name": "РОЙ", "color": (255, 160, 60), "shape": "circle",
-                 "desc": "Маленький, очень быстрый. Слабый по одиночке, но опасен в роях из 5-10 штук.",
-                 "stats": "HP: 12  Урон: 4  Скорость: 6.5  Опыт: 8"},
-                {"name": "ПРИЗРАК", "color": (150, 255, 220), "shape": "hexagon",
-                 "desc": "Полупрозрачный враг. Высокий урон, средняя скорость. Особая форма перемещения.",
-                 "stats": "HP: 35  Урон: 18  Скорость: 3.5  Опыт: 20"},
-                {"name": "ГРОМИЛА", "color": (200, 50, 50), "shape": "square",
-                 "desc": "Крепкий и сильный. Много HP, высокий урон. Хороший источник опыта.",
-                 "stats": "HP: 160  Урон: 22  Скорость: 2.2  Опыт: 45"},
-                {"name": "ПИЯВКА", "color": (190, 80, 200), "shape": "triangle",
-                 "desc": "Восстанавливает HP при атаке игрока. Опасен при длительном контакте.",
-                 "stats": "HP: 55  Урон: 10  Скорость: 3.0  Опыт: 20"},
-                {"name": "БОМБАРДИРОВЩИК", "color": (255, 100, 30), "shape": "circle",
-                 "desc": "При смерти взрывается, нанося большой урон в области. Держитесь дальше!",
-                 "stats": "HP: 50  Урон: 40 (взрыв)  Скорость: 1.8  Опыт: 35"},
-                {"name": "РЕЙНДЖЕР", "color": (100, 220, 120), "shape": "diamond",
-                 "desc": "Держится на дистанции и стреляет снарядами. Опасен в обороне — подходите осторожно!",
-                 "stats": "HP: 50  Урон: 16  Скорость: 1.5  Опыт: 30"},
+                {"name": "ДРОН", "color": COLORS["enemy"], "shape": "circle",
+                 "desc": "Стандартный враг фракции Рой. Движется прямо к игроку. Особенность: при смерти на высоких рангах ускоряет ближних союзников.",
+                 "stats": "HP: 30  Урон: 8  Скорость: 2.5  Опыт: 10  Ранг: 1"},
+                {"name": "СТРЕМИТЕЛЬНЫЙ", "color": (255, 200, 40), "shape": "triangle",
+                 "desc": "Быстрый враг фракции Рой. Опасен в группах. Особенность: при низком HP (25%) резко меняет направление движения.",
+                 "stats": "HP: 20  Урон: 5  Скорость: 5.0  Опыт: 15  Ранг: 1"},
+                {"name": "БРОНЕТАНК", "color": COLORS["elite_enemy"], "shape": "square",
+                 "desc": "Тяжёлый враг фракции Элита. Медленный, но прочный. Особенность: броня снижает весь получаемый урон на 20%.",
+                 "stats": "HP: 100  Урон: 10  Скорость: 1.5  Опыт: 30  Броня: 20%"},
+                {"name": "ПОВЕЛИТЕЛЬ", "color": COLORS["boss"], "shape": "hexagon",
+                 "desc": "Боссовый враг фракции Командиры. Огромный HP, высокий урон. Особенность: периодически призывает рой союзников.",
+                 "stats": "HP: 500  Урон: 18  Скорость: 2.0  Опыт: 200"},
+                {"name": "ОХОТНИК", "color": (180, 40, 220), "shape": "diamond",
+                 "desc": "Дальнобойный снайпер фракции Теневые. Стреляет быстрыми прицельными снарядами с упреждением. Особенность: на высоких рангах пуля пробивает неуязвимость игрока.",
+                 "stats": "HP: 45  Урон: 18  Скорость: 1.2  Опыт: 25  Дальность: 700px"},
+                {"name": "ЛИЧИНКА", "color": (255, 120, 30), "shape": "circle",
+                 "desc": "Крошечный враг фракции Рой. Очень слабый по одиночке, смертоносен в больших роях. Высокая скорость.",
+                 "stats": "HP: 12  Урон: 3  Скорость: 6.5  Опыт: 8"},
+                {"name": "ФАНТОМ", "color": (140, 50, 200), "shape": "hexagon",
+                 "desc": "Призрак фракции Теневые. Особенность: каждые 3 секунды входит в фазу неуязвимости на 0.8с — пули проходят насквозь. Ждите окончания фазы.",
+                 "stats": "HP: 35  Урон: 12  Скорость: 3.5  Опыт: 20  Фаза: 0.8с"},
+                {"name": "БЕРСЕРК", "color": (60, 160, 240), "shape": "square",
+                 "desc": "Тяжёлый враг фракции Элита. Особенность: при падении HP ниже 40% впадает в берсерк — скорость x1.8, урон x1.5. Добивайте быстро!",
+                 "stats": "HP: 160  Урон: 15  Скорость: 2.2 (до 4.0)  Опыт: 45"},
+                {"name": "ПАРАЗИТ", "color": (220, 50, 200), "shape": "triangle",
+                 "desc": "Живучий враг фракции Теневые. Особенность: при каждом ударе по игроку восстанавливает своё HP. Чем дольше контакт — тем опаснее.",
+                 "stats": "HP: 55  Урон: 7  Скорость: 3.0  Опыт: 20  Лечение: 8+/удар"},
+                {"name": "КАМИКАДЗЕ", "color": (255, 80, 20), "shape": "circle",
+                 "desc": "Взрывной враг фракции Рой. Особенность: при смерти создаёт взрыв в радиусе 80px. Никогда не добивайте вблизи — отступите и расстреляйте издалека.",
+                 "stats": "HP: 50  Урон касания: 25  Взрыв: 40 AOE  Скорость: 1.8  Опыт: 35"},
+                {"name": "РЕЙНДЖЕР", "color": (60, 200, 220), "shape": "diamond",
+                 "desc": "Дальнобойный враг фракции Элита. Держится на дистанции 350px, стреляет тройными выстрелами на высоких рангах. Атакует с упреждением.",
+                 "stats": "HP: 50  Урон: 16  Скорость: 1.5  Опыт: 30  Дальность: 350px"},
                 {"name": "МОРТИРЩИК", "color": (180, 100, 40), "shape": "square",
-                 "desc": "Стоит и обстреливает позицию игрока замедленными взрывчатыми снарядами. Отступайте!",
-                 "stats": "HP: 70  Урон: 22 (AOE)  Скорость: 0.6  Опыт: 40"},
+                 "desc": "Осадный враг фракции Командиры. Особенность: стреляет медленными снарядами, которые взрываются в точке прицеливания по истечении времени. Следите за прицелом!",
+                 "stats": "HP: 70  Урон взрыва: 22 AOE  Скорость: 0.6  Опыт: 40"},
                 {"name": "ЩИТОНОСЕЦ", "color": (80, 200, 255), "shape": "hexagon",
-                 "desc": "Создаёт защитную ауру, которая даёт щит всем союзникам в радиусе 200px. Убейте его первым!",
-                 "stats": "HP: 200  Урон: 8  Скорость: 1.0  Опыт: 60"},
-                {"name": "СТРАЖ", "color": (60, 120, 255), "shape": "hexagon",
-                 "desc": "Медленный великан с огромным HP. Требует много выстрелов. Ценный источник опыта.",
-                 "stats": "HP: 280  Урон: 28  Скорость: 0.7  Опыт: 80"},
+                 "desc": "Поддержка фракции Командиры. Стремится держаться рядом со своими союзниками. Особенность: каждые 1.5с наделяет союзников в ауре 200px временным щитом. Имеет собственный щит. Убейте первым!",
+                 "stats": "HP: 200  Урон: 8  Скорость: 1.0  Опыт: 60  Аура: 200px"},
+                {"name": "ЧАСОВОЙ", "color": (60, 120, 255), "shape": "hexagon",
+                 "desc": "Элитный враг фракции Командиры. Огромный HP и мощный урон. Особенность: при ударе создаёт волну отталкивания — игрок отлетает назад.",
+                 "stats": "HP: 280  Урон: 20  Скорость: 0.7  Опыт: 80"},
+                {"name": "ЛАНЦЕТ", "color": (80, 220, 180), "shape": "triangle",
+                 "desc": "Дальнобойный враг фракции Элита. Особенность: стреляет пробивающими снарядами, которые проходят сквозь нескольких врагов. Держится на дистанции 400px.",
+                 "stats": "HP: 40  Урон: 12  Скорость: 2.0  Опыт: 28  Пробитие: +1"},
+                {"name": "РЕГЕНЕРАТОР", "color": (50, 220, 100), "shape": "circle",
+                 "desc": "Лечащая поддержка фракции Поддержка. Старается находиться рядом с союзниками. Особенность: каждые 2с восстанавливает HP всем союзникам в ауре 200px. Приоритетная цель!",
+                 "stats": "HP: 65  Урон: 6  Скорость: 1.8  Опыт: 50  Лечение: 8/2с"},
+                {"name": "УСИЛИТЕЛЬ", "color": (220, 200, 50), "shape": "diamond",
+                 "desc": "Усиляющая поддержка фракции Поддержка. Держится рядом с союзниками. Особенность: каждые 3с даёт всем союзникам в ауре 180px +40% скорость и урон на 2с.",
+                 "stats": "HP: 55  Урон: 5  Скорость: 1.5  Опыт: 55  Бафф: +40% скорость/урон"},
             ]
-            card_h = 110
+            card_h = 125
             spacing = 14
             total_h = len(enemies_data) * (card_h + spacing)
             max_scroll = max(0, total_h - cont_h + 30)
@@ -2534,14 +2610,26 @@ class Engine:
                     
                     # Text
                     name_t = self.font_small.render(ed["name"], True, ed["color"])
-                    screen.blit(name_t, (cr.x + 110, cr.y + 12))
-                    desc_t = self.font_tiny.render(ed["desc"][:80], True, (180,180,200))
-                    screen.blit(desc_t, (cr.x + 110, cr.y + 45))
-                    if len(ed["desc"]) > 80:
-                        desc2_t = self.font_tiny.render(ed["desc"][80:], True, (180,180,200))
-                        screen.blit(desc2_t, (cr.x + 110, cr.y + 65))
+                    screen.blit(name_t, (cr.x + 110, cr.y + 10))
+                    # Description - split into lines of ~85 chars
+                    desc_full = ed["desc"]
+                    desc_lines = []
+                    words = desc_full.split()
+                    line = ""
+                    for w in words:
+                        test = line + " " + w if line else w
+                        if self.font_tiny.size(test)[0] < cont_w - 160:
+                            line = test
+                        else:
+                            desc_lines.append(line)
+                            line = w
+                    if line:
+                        desc_lines.append(line)
+                    for li, dl in enumerate(desc_lines[:3]):
+                        desc_t = self.font_tiny.render(dl, True, (180,180,200))
+                        screen.blit(desc_t, (cr.x + 110, cr.y + 42 + li * 20))
                     stats_t = self.font_tiny.render(ed["stats"], True, COLORS["warning"])
-                    screen.blit(stats_t, (cr.x + 110, cr.y + 85))
+                    screen.blit(stats_t, (cr.x + 110, cr.y + 100))
                 y += card_h + spacing
             screen.set_clip(None)
             
@@ -2554,26 +2642,34 @@ class Engine:
         elif self.knowledge_tab == "abilities":
             # ---- ВКЛАДКА СПОСОБНОСТЕЙ ----
             KB_ABILITIES = [
-                {"id": "dash_boost",   "name": "СВЕРХРЫВОК",      "color": COLORS["player"],
+                {"id": "dash_boost",   "name": "РЫВОК-УДАР",        "color": COLORS["player"],
                  "key": "Q",  "cd": "Пассивный",
                  "icon": "[>>]",
-                 "desc": "Ваш рывок наносит 30 урона всем врагам на пути. Эффект постоянный."},
-                {"id": "shield_pulse", "name": "ИМПУЛЬС ЩИТА",    "color": COLORS["shield"],
+                 "desc": "Каждый рывок наносит 30 урона всем врагам на его пути. Эффект постоянный — срабатывает автоматически при каждом рывке."},
+                {"id": "shield_pulse", "name": "ИМПУЛЬС ЩИТА",      "color": COLORS["shield"],
                  "key": "Q",  "cd": "6с",
                  "icon": "[()]",
-                 "desc": "Создаёт мощную волну энергии, отбрасывая всех врагов в радиусе 250px."},
-                {"id": "time_slow",    "name": "ЗАМЕДЛЕНИЕ",       "color": (100, 200, 255),
+                 "desc": "Создаёт мощный импульс энергии вокруг вас — все враги в радиусе 250px мгновенно отбрасываются. Отличен для побега из окружения."},
+                {"id": "time_slow",    "name": "ЗАМЕДЛЕНИЕ",         "color": (100, 200, 255),
                  "key": "Q",  "cd": "12с",
                  "icon": "[<<]",
-                 "desc": "Замораживает всех врагов на экране на 3 секунды. Отличное средство спасения."},
-                {"id": "overdrive",    "name": "ПЕРЕГРУЗКА",       "color": COLORS["warning"],
+                 "desc": "Замедляет всех текущих врагов на поле на 60% скорости в течение 4 секунд. Замедлённые враги светятся синим. Не замораживает, но даёт время перегруппироваться."},
+                {"id": "overdrive",    "name": "ПЕРЕГРУЗКА",         "color": COLORS["warning"],
                  "key": "Q",  "cd": "15с",
                  "icon": "[!!]",
-                 "desc": "Удваивает скорострельность на 5 секунд. Смертоносен в сочетании с мультивыстрелом."},
-                {"id": "nuke",         "name": "ЯДЕРНЫЙ ЗАРЯД",   "color": COLORS["enemy"],
+                 "desc": "Удваивает скорострельность на 5 секунд. В сочетании с мультивыстрелом или взрывными пулями урон возрастает многократно. Эффект виден по золотому свечению."},
+                {"id": "nuke",         "name": "ЯДЕРНЫЙ ЗАРЯД",     "color": COLORS["enemy"],
                  "key": "Q",  "cd": "20с",
                  "icon": "[*]",
-                 "desc": "Взрыв в радиусе 400px наносит 150 урона всем врагам. Самая мощная способность."},
+                 "desc": "Мощнейший взрыв в радиусе 400px наносит 150 единиц урона всем врагам в зоне. Мгновенно убивает большинство рядовых врагов. Долгая перезарядка."},
+                {"id": "heal_pulse",   "name": "ПУЛЬС ИСЦЕЛЕНИЯ",   "color": (100, 255, 150),
+                 "key": "Q",  "cd": "18с",
+                 "icon": "[+]",
+                 "desc": "Восстанавливает 40% от максимального HP и добавляет 80 единиц щита на 3 секунды. Незаменима при критически низком здоровье."},
+                {"id": "bullet_storm", "name": "ШТОРМ ПУЛЬ",        "color": (255, 180, 50),
+                 "key": "Q",  "cd": "10с",
+                 "icon": "[x]",
+                 "desc": "Единовременно выпускает 24 пули равномерно во всех направлениях. Каждая пуля — полноценный выстрел с вашими характеристиками крита и урона."},
             ]
             card_h = 100
             spacing = 14
@@ -3052,11 +3148,12 @@ class Engine:
     
     def _activate_ability(self, ab_id):
         """Активировать выбранную способность"""
-        AB_COOLDOWNS = {"dash_boost":0,"shield_pulse":6000,"time_slow":12000,"overdrive":15000,"nuke":20000}
+        AB_COOLDOWNS = {"dash_boost":0,"shield_pulse":6000,"time_slow":12000,"overdrive":15000,"nuke":20000,
+                        "heal_pulse":18000,"bullet_storm":10000}
         self.ability_cooldown = AB_COOLDOWNS.get(ab_id, 8000)
         
         if ab_id == "dash_boost":
-            # Enhance dash damage (handled in dash logic by flag)
+            # Рывок наносит урон — флаг уже устанавливается при рывке
             self.player.dash_deals_damage = True
         
         elif ab_id == "shield_pulse":
@@ -3074,10 +3171,11 @@ class Engine:
             self.sound_manager.play_sound("explosion")
         
         elif ab_id == "time_slow":
-            # Slow all enemies
-            self.ability_active_timer = 3000
+            # Замедляет всех врагов (не замораживает)
+            self.ability_active_timer = 4000
             for enemy in self.enemies:
-                enemy.frozen_duration = max(enemy.frozen_duration, 3000)
+                enemy.slow_duration = max(enemy.slow_duration, 4000)
+                enemy.slow_factor = min(enemy.slow_factor, 0.4)
             self.particle_system.emit(self.player.pos, 20, (100, 200, 255))
         
         elif ab_id == "overdrive":
@@ -3103,6 +3201,33 @@ class Engine:
                         self.score += enemy.exp_value
             self.particle_system.emit(self.player.pos, 60, (255, 100, 0))
             self.sound_manager.play_sound("explosion")
+        
+        elif ab_id == "heal_pulse":
+            # Восстанавливает 40% HP и временный щит
+            heal_amount = int(self.player.max_hp * 0.4)
+            self.player.heal(heal_amount)
+            # Временный щит на 3 секунды (добавляем 50 щита)
+            if not hasattr(self.player, '_pulse_shield_active'):
+                self.player._pulse_shield_active = False
+            self.player.add_shield(80)
+            self.ability_active_timer = 3000
+            self.particle_system.emit(self.player.pos, 25, (100, 255, 150))
+            self.sound_manager.play_sound("powerup")
+        
+        elif ab_id == "bullet_storm":
+            # 24 пули во все стороны
+            import math as _m
+            for bi in range(24):
+                angle = bi * (360 / 24)
+                is_crit = random.random() < self.player.crit_chance
+                dmg = int(self.player.dmg * (self.player.crit_multiplier if is_crit else 1))
+                self.bullets.append(Bullet(
+                    self.player.pos, angle, self.player.bullet_speed * 1.2,
+                    dmg, self.player.piercing, self.player.bullet_size,
+                    self.player.bullet_lifetime, is_crit
+                ))
+            self.particle_system.emit(self.player.pos, 30, COLORS["player"])
+            self.sound_manager.play_sound("shoot")
 
     def game_loop(self):
         self.time_survived += self.dt
@@ -3132,7 +3257,7 @@ class Engine:
         self.update_wave_system()
         
         for enemy in self.enemies[:]:
-            enemy.update(self.dt, self.player.pos)
+            enemy.update(self.dt, self.player.pos, self.enemies)
             # Удаляем врагов убитых эффектами (яд и т.д.)
             if enemy.hp <= 0 and enemy in self.enemies:
                 self.particle_system.emit(enemy.pos, 15, enemy.color)
@@ -3312,7 +3437,7 @@ class Engine:
                 self.cam += (target_cam - self.cam) * 0.1
                 
                 for enemy in self.enemies[:]:
-                    enemy.update(self.dt, self.player.pos)
+                    enemy.update(self.dt, self.player.pos, self.enemies)
                     if enemy.hp <= 0 and enemy in self.enemies:
                         self.particle_system.emit(enemy.pos, 10, enemy.color)
                         self.exp_gems.append(pygame.Vector2(enemy.pos))

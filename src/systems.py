@@ -9,13 +9,13 @@ class SaveSystem:
     def __init__(self):
         # Сохранение в папку data/
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        data_dir = os.path.join(script_dir, "./data")
+        data_dir = os.path.join(script_dir, "../data")
         
         # Создаем папку data если её нет
         if not os.path.exists(data_dir):
             os.makedirs(data_dir)
         
-        self.save_file = os.path.join(data_dir, ".save.json")
+        self.save_file = os.path.join(data_dir, "save.json")
         self.data = self.load()
     
     def load(self) -> dict:

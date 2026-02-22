@@ -579,7 +579,10 @@ class Enemy(GameObject):
         # Поля для эффектов
         self.poison_damage = 0
         self.poison_duration = 0
-        self.frozen_duration = 0
+        self.poison_accum = 0.0
+        self.frozen_duration = 0  # полная заморозка (способность)
+        self.slow_duration = 0    # замедление (перк/эффект)
+        self.slow_factor = 1.0    # множитель скорости (0.3 = 30% от базовой)
         self.chain_lightning_target = False
         self.chain_lightning_timer = 0
         self.explosion_marked = False
@@ -614,11 +617,17 @@ class Enemy(GameObject):
         self.hit_flash = 100
         return self.hp <= 0
     
-    def update(self, dt: float, target_pos: pygame.Vector2 = None):
+    def update(self, dt: float, target_pos: pygame.Vector2 = None, allies: list = None):
         # Обработка яда
         if self.poison_duration > 0:
             self.poison_duration -= dt * 1000
-            self.hp -= int(self.poison_damage * dt)
+            if not hasattr(self, 'poison_accum'):
+                self.poison_accum = 0.0
+            self.poison_accum += self.poison_damage * dt
+            if self.poison_accum >= 1.0:
+                dmg_int = int(self.poison_accum)
+                self.hp -= dmg_int
+                self.poison_accum -= dmg_int
             if self.hp <= 0:
                 return  # Враг умер от яда
         
@@ -627,6 +636,13 @@ class Enemy(GameObject):
             self.frozen_duration -= dt * 1000
             # Не двигаемся пока заморожены
         else:
+            # Обработка замедления
+            if self.slow_duration > 0:
+                self.slow_duration -= dt * 1000
+                if self.slow_duration <= 0:
+                    self.slow_duration = 0
+                    self.slow_factor = 1.0
+            effective_speed = self.speed * self.slow_factor
             # --- Берсерк-режим при <40% HP ---
             if self.type == "bruiser" and not self.berserk_triggered and self.hp < self.max_hp * 0.4:
                 self.berserk_triggered = True
@@ -654,13 +670,33 @@ class Enemy(GameObject):
                 direction = target_pos - self.pos
                 dist = direction.length()
                 if dist > pref_range + 40:
-                    self.pos += direction.normalize() * self.speed
+                    self.pos += direction.normalize() * effective_speed
                 elif dist < pref_range - 40:
-                    self.pos -= direction.normalize() * self.speed
-            elif target_pos:
+                    self.pos -= direction.normalize() * effective_speed
+            elif target_pos and self.type not in ("shielder", "healer", "buffer"):
                 direction = target_pos - self.pos
                 if direction.length() > 0:
-                    self.pos += direction.normalize() * self.speed
+                    self.pos += direction.normalize() * effective_speed
+            elif target_pos and self.type in ("shielder", "healer", "buffer"):
+                # Поддержка ищет ближайшего союзника и держится рядом
+                support_allies = [a for a in (allies or []) if a is not self]
+                if support_allies:
+                    # Найти ближайшего союзника
+                    nearest = min(support_allies, key=lambda a: (a.pos - self.pos).length())
+                    support_range = getattr(self, 'aura_radius', 200) * 0.7
+                    d_ally = nearest.pos - self.pos
+                    dist_ally = d_ally.length()
+                    if dist_ally > support_range + 20:
+                        # Двигаемся к союзнику
+                        self.pos += d_ally.normalize() * effective_speed
+                    elif dist_ally < support_range - 20:
+                        # Отходим немного
+                        self.pos -= d_ally.normalize() * effective_speed * 0.5
+                else:
+                    # Одни — идём к игроку
+                    direction = target_pos - self.pos
+                    if direction.length() > 0:
+                        self.pos += direction.normalize() * effective_speed
         
         # Обновляем кулдаун стрельбы дальнобойных
         if self.type in ("ranger", "mortar", "sniper", "lancer"):
