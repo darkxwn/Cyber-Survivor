@@ -1,3 +1,4 @@
+import pygame
 from engine import Engine
 
 if __name__ == "__main__":
